@@ -14,3 +14,5 @@ This project provides a comprehensive analysis and prediction system for Matka g
 ## Setup and Usage
 
 More detailed instructions will be added here.
+
+“This project prioritizes analytical transparency over accuracy claims.”

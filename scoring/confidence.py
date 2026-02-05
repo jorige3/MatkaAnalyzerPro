@@ -71,13 +71,15 @@ class ConfidenceEngine:
         Parameters
         ----------
         frequency : Dict[str, float]
-            Jodi to frequency score (0-100).
+            Jodi to frequency score (0-100). Expected to be normalized between 0 and 100.
         cycles : Dict[str, dict]
-            Jodi to cycle analysis results (e.g., {'cycle_score': 50, 'status': 'NORMAL'}).
+            Jodi to cycle analysis results (e.g., {'cycle_score': 50, 'status': 'NORMAL'}). Expected 'cycle_score' to be normalized between 0 and 100.
         digits : Dict[str, dict]
-            Jodi to digit analysis results (e.g., {'digit_score': 75, ...}).
+            Jodi to digit analysis results (e.g., {'digit_score': 75, ...}). Expected 'digit_score' to be normalized between 0 and 100.
         momentum : Dict[str, float]
-            Jodi to momentum score (0-200, capped).
+            Jodi to momentum score (0-200, capped). This will be normalized to 0-100 internally.
+        sample_size : int
+            The number of data points (e.g., historical days) used for the analysis.
         top_n : int, optional
             Number of top Jodis to return, by default 10.
 
@@ -166,12 +168,14 @@ class ConfidenceEngine:
             elif momentum_score_normalized <= LOW_MOMENTUM_THRESHOLD:
                 tag_list.append("LOW_MOMENTUM")
 
-            if not tag_list and final_score >= BALANCED_SIGNAL_LOWER and final_score <= BALANCED_SIGNAL_UPPER:
+            if final_score >= BALANCED_SIGNAL_LOWER and final_score <= BALANCED_SIGNAL_UPPER:
                 tag_list.append("BALANCED_SIGNAL")
-            elif not tag_list and final_score < BALANCED_SIGNAL_LOWER:
+            elif final_score < BALANCED_SIGNAL_LOWER:
                 tag_list.append("WEAK_SIGNAL")
-            elif not tag_list and final_score > MODERATE_SIGNAL_LOWER:
+            elif final_score > MODERATE_SIGNAL_LOWER:
                 tag_list.append("MODERATE_SIGNAL")
+            else:
+                tag_list.append("NORMAL_SIGNAL")
 
 
             tags[jodi] = tag_list

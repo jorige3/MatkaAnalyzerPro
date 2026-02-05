@@ -48,7 +48,7 @@ def run_engines(df: pd.DataFrame) -> dict:
     momentum = momentum_engine.run(df)
     entropy = entropy_engine.run(df) # New engine run
 
-    confidence = conf_engine.run(frequency, cycles, digits, momentum, sample_size=len(df))
+    confidence = conf_engine.run(frequency, cycles, digits, momentum, sample_size=len(df), top_n=TOP_N_PREDICTIONS)
 
     results["frequency"] = frequency
     results["cycles"] = cycles
@@ -156,17 +156,6 @@ def main():
     df = data_loader.load_data()
     print(f"Loaded {len(df)} records from {DATA_FILE}")
     results = run_engines(df)
-
-    conf_engine = ConfidenceEngine()
-    final_scores = conf_engine.run(
-        frequency=results["frequency"],
-        cycles=results["cycles"],
-        digits=results["digits"],
-        momentum=results["momentum"],
-        sample_size=len(df),
-        top_n=TOP_N_PREDICTIONS
-    )
-    results["confidence"] = final_scores
 
     backtester = PaperBacktest(DATA_FILE, min_history_days=MIN_HISTORY_DAYS)
     backtest_stats = backtester.run(top_n=TOP_N_PREDICTIONS)

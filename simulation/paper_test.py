@@ -38,6 +38,19 @@ class PaperBacktest:
             for a given day. This acts as the initial training window.
             Defaults to 30.
         """
+        """
+        Initializes the PaperBacktest engine.
+
+        Parameters
+        ----------
+        csv_path : str
+            Path to the CSV file containing historical Matka data.
+            Must contain 'Date' and 'Jodi' columns.
+        min_history_days : int, optional
+            The minimum number of historical days required to start analysis
+            for a given day. This acts as the initial training window.
+            Defaults to 30.
+        """
         self.df = pd.read_csv(csv_path)
         self.df["Date"] = pd.to_datetime(self.df["Date"])
         self.df = self.df.sort_values("Date").reset_index(drop=True)
@@ -121,11 +134,19 @@ class PaperBacktest:
             total_days_tested += 1
 
             if verbose:
+                actual_jodi_details = next(((j, s, t) for j, s, t in ranked_jodis if j == actual_jodi), None)
+                top_predicted_jodi_details = ranked_jodis[0] if ranked_jodis else (None, None, None)
+
                 daily_results.append({
                     "date": current_date,
                     "actual_jodi": actual_jodi,
-                    "predicted_top_n": predicted_jodis,
-                    "is_hit": is_hit
+                    "predicted_top_n": [j for j, _, _ in ranked_jodis],
+                    "is_hit": is_hit,
+                    "actual_jodi_confidence": actual_jodi_details[1] if actual_jodi_details else None,
+                    "actual_jodi_tags": actual_jodi_details[2] if actual_jodi_details else None,
+                    "top_predicted_jodi": top_predicted_jodi_details[0],
+                    "top_predicted_confidence": top_predicted_jodi_details[1],
+                    "top_predicted_tags": top_predicted_jodi_details[2],
                 })
 
         historical_alignment_rate = round((hits / total_days_tested) * 100, 2) if total_days_tested else 0.0
