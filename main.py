@@ -7,6 +7,7 @@ from engines.cycles import CycleEngine
 from engines.digits import DigitEngine
 from engines.momentum import MomentumEngine
 from engines.entropy import EntropyEngine
+from engines.ml_predictor import MLPredictor # New import
 from scoring.confidence import ConfidenceEngine
 from config import DATA_FILE, SCHEMA_FILE, DISCLAIMER, MIN_HISTORY_DAYS, TOP_N_PREDICTIONS
 
@@ -162,6 +163,15 @@ def main():
     df = data_loader.load_data()
     logging.info(f"Loaded {len(df)} records from {DATA_FILE}")
     results = run_engines(df)
+
+    # --- ML Predictor Integration ---
+    logging.info("\n=== ML Predictor ===")
+    ml_predictor = MLPredictor(df_path=DATA_FILE)
+    ml_accuracy = ml_predictor.train()
+    logging.info(f"ML Model Trained. Accuracy: {ml_accuracy:.2%}")
+    ml_top_predictions = ml_predictor.predict_top(n=TOP_N_PREDICTIONS)
+    logging.info(f"ML Top {TOP_N_PREDICTIONS} Predictions: {', '.join(map(str, ml_top_predictions))}")
+
 
     backtester = PaperBacktest(DATA_FILE, min_history_days=MIN_HISTORY_DAYS)
     backtest_stats = backtester.run(top_n=TOP_N_PREDICTIONS)

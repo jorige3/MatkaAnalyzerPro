@@ -7,6 +7,7 @@ the hit rate of top predictions.
 """
 from typing import Dict
 import pandas as pd
+import numpy as np
 
 from engines.frequency import FrequencyEngine
 from engines.cycles import CycleEngine
@@ -79,8 +80,7 @@ class PaperBacktest:
         total_predictions = 0
         total_hits = 0
 
-        unique_dates = self.all_data["Date"].unique()
-        unique_dates.sort()
+        unique_dates = np.sort(self.all_data["Date"].unique())
 
         # Iterate through each day, pretending to be "today"
         for i, current_date_np in enumerate(unique_dates):
