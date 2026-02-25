@@ -13,7 +13,6 @@ any form of gambling advice or prediction.
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from main import run_engines
 from data.data_loader import DataLoader
 from simulation.paper_test import PaperBacktest
