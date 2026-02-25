@@ -1,7 +1,12 @@
-# engines/frequency.py
-
-import pandas as pd
+"""
+Frequency Engine
+----------------
+Computes normalized frequency scores for Jodis over a rolling window.
+"""
 from typing import Dict
+import pandas as pd
+
+from scoring.utils import validate_df
 
 
 class FrequencyEngine:
@@ -37,15 +42,7 @@ class FrequencyEngine:
         Dict[str, float]
             { jodi: frequency_score (0–100) }
         """
-
-        # --- Validation ---
-        required_cols = {"Date", "Jodi"}
-        if not required_cols.issubset(df.columns):
-            raise ValueError(f"Missing required columns: {required_cols}")
-
-        # Ensure Date is datetime
-        data = df.copy()
-        data["Date"] = pd.to_datetime(data["Date"])
+        data = validate_df(df)
 
         # --- Rolling Window Filter ---
         latest_date = data["Date"].max()

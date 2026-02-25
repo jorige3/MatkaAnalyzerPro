@@ -1,16 +1,18 @@
-# engines/entropy.py
-
+"""
+Entropy Engine
+--------------
+Calculates the entropy of Jodi distributions over time to identify
+periods of high or low predictability.
+"""
+from typing import Dict
 import pandas as pd
 import numpy as np
-from typing import Dict
 
 
 class EntropyEngine:
     """
-    Entropy Analyzer Engine
-    -----------------------
-    Measures the unpredictability or randomness of Jodi sequences.
-    Higher entropy suggests more randomness, lower entropy suggests more predictable patterns.
+    Analyzes the entropy of Jodi occurrences.
+    High entropy suggests randomness, low entropy suggests emerging patterns.
     """
 
     def __init__(self):
@@ -18,7 +20,7 @@ class EntropyEngine:
         Initializes the EntropyEngine.
         This engine currently does not require any specific parameters during initialization.
         """
-        pass
+
 
     def run(self, df: pd.DataFrame) -> Dict[str, float]:
         """

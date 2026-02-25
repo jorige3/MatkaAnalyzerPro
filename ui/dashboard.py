@@ -23,28 +23,31 @@ st.set_page_config(layout="wide", page_title="Matka Analyzer Pro Dashboard")
 
 st.title("Matka Analyzer Pro: Historical Pattern Analysis")
 
-st.markdown(f"*{DISCLAIMER}*")
+# Global disclaimer at the top
+st.markdown(f"**{DISCLAIMER}**")
 
+# --- Sidebar Configuration ---
 st.sidebar.header("Configuration")
 selected_data_file = st.sidebar.selectbox("Select Data File", [DATA_FILE])
-min_history_days = st.sidebar.slider("Minimum History Days for Backtest", 10, 100, MIN_HISTORY_DAYS)
-top_n_predictions = st.sidebar.slider("Top N Predictions for Backtest", 1, 20, TOP_N_PREDICTIONS)
+min_history_days_config = st.sidebar.slider("Minimum History Days for Backtest", 10, 100, MIN_HISTORY_DAYS)
+top_n_predictions_config = st.sidebar.slider("Top N Predictions for Display & Backtest", 1, 20, TOP_N_PREDICTIONS)
 
 # --- Data Loading and Engine Run ---
 @st.cache_data
-def load_and_run_analysis(data_file, schema_file, min_hist_days):
+def load_and_run_analysis(data_file, schema_file, min_hist_days_param):
     data_loader = DataLoader(file_path=data_file, schema_path=schema_file)
     df = data_loader.load_data()
     # Ensure enough data for analysis
-    if len(df) < min_hist_days:
-        st.error(f"Not enough historical data. Need at least {min_hist_days} days.")
+    if len(df) < min_hist_days_param:
+        st.error(f"Not enough historical data. Need at least {min_hist_days_param} days.")
         st.stop()
     results = run_engines(df)
     return df, results
 
-df, results = load_and_run_analysis(selected_data_file, SCHEMA_FILE, min_history_days)
+# Use selected values from sidebar
+df, results = load_and_run_analysis(selected_data_file, SCHEMA_FILE, min_history_days_config)
 
-st.subheader("Current Analysis Snapshot")
+st.subheader("Data Overview")
 st.write(f"Loaded {len(df)} records from `{selected_data_file}`.")
 st.write(f"Analysis performed up to `{df['Date'].max().strftime('%Y-%m-%d')}`.")
 
@@ -53,63 +56,129 @@ st.header("Top Confidence Alignments")
 confidence_results = results.get("confidence", [])
 if confidence_results:
     confidence_df = pd.DataFrame(confidence_results, columns=["Jodi", "Confidence Score", "Tags"])
-    st.dataframe(confidence_df.head(top_n_predictions))
+    
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        st.dataframe(confidence_df.head(top_n_predictions_config))
+    with col2:
+        fig_conf = px.bar(
+            confidence_df.head(top_n_predictions_config),
+            x="Jodi",
+            y="Confidence Score",
+            title=f"Top {top_n_predictions_config} Jodis by Confidence",
+            hover_data=["Tags"]
+        )
+        st.plotly_chart(fig_conf, use_container_width=True)
 else:
     st.info("No confidence alignments to display.")
 
-# --- Frequency Chart ---
-st.header("Frequency Analysis")
-frequency_data = results.get("frequency", {})
-if frequency_data:
-    freq_df = pd.DataFrame(frequency_data.items(), columns=["Jodi", "Frequency Score"])
-    freq_df = freq_df.sort_values("Frequency Score", ascending=False).head(top_n_predictions)
-    fig_freq = px.bar(freq_df, x="Jodi", y="Frequency Score", title=f"Top {top_n_predictions} Jodis by Frequency")
-    st.plotly_chart(fig_freq, use_container_width=True)
-else:
-    st.info("No frequency data to display.")
+# --- Detailed Analysis Section ---
+st.header("Detailed Engine Analysis")
+with st.expander("Expand to view detailed engine outputs"):
+    # --- Frequency Chart ---
+    st.subheader("Frequency Analysis")
+    frequency_data = results.get("frequency", {})
+    if frequency_data:
+        freq_df = pd.DataFrame(frequency_data.items(), columns=["Jodi", "Frequency Score"])
+        freq_df = freq_df.sort_values("Frequency Score", ascending=False).head(top_n_predictions_config)
+        fig_freq = px.bar(freq_df, x="Jodi", y="Frequency Score", title=f"Top {top_n_predictions_config} Jodis by Frequency")
+        st.plotly_chart(fig_freq, use_container_width=True)
+    else:
+        st.info("No frequency data to display.")
 
-# --- Cycle Distribution ---
-st.header("Cycle Analysis")
-cycle_data = results.get("cycles", {})
-if cycle_data:
-    cycle_status_counts = pd.DataFrame([v["status"] for v in cycle_data.values()], columns=["Status"])
-    fig_cycle = px.pie(cycle_status_counts, names="Status", title="Cycle Status Distribution")
-    st.plotly_chart(fig_cycle, use_container_width=True)
+    # --- Cycle Distribution ---
+    st.subheader("Cycle Analysis")
+    cycle_data = results.get("cycles", {})
+    if cycle_data:
+        cycle_status_counts = pd.DataFrame([v["status"] for v in cycle_data.values()], columns=["Status"])
+        fig_cycle = px.pie(cycle_status_counts, names="Status", title="Cycle Status Distribution")
+        st.plotly_chart(fig_cycle, use_container_width=True)
 
-    st.subheader("Jodis in DUE/EXHAUSTED Cycles")
-    due_jodis = [jodi for jodi, data in cycle_data.items() if data["status"] == "DUE"]
-    exhausted_jodis = [jodi for jodi, data in cycle_data.items() if data["status"] == "EXHAUSTED"]
+        due_jodis = [jodi for jodi, data in cycle_data.items() if data["status"] == "DUE"]
+        exhausted_jodis = [jodi for jodi, data in cycle_data.items() if data["status"] == "EXHAUSTED"]
 
-    if due_jodis:
-        st.write(f"**DUE Cycles**: {', '.join(due_jodis)}")
-    if exhausted_jodis:
-        st.write(f"**EXHAUSTED Cycles**: {', '.join(exhausted_jodis)}")
-    if not due_jodis and not exhausted_jodis:
-        st.info("No Jodis currently in DUE or EXHAUSTED cycles.")
-else:
-    st.info("No cycle data to display.")
+        if due_jodis:
+            st.write(f"**Jodis in DUE Cycles**: {', '.join(due_jodis)}")
+        if exhausted_jodis:
+            st.write(f"**Jodis in EXHAUSTED Cycles**: {', '.join(exhausted_jodis)}")
+        if not due_jodis and not exhausted_jodis:
+            st.info("No Jodis currently in DUE or EXHAUSTED cycles.")
+    else:
+        st.info("No cycle data to display.")
+
+    # --- Digit Strength ---
+    st.subheader("Digit Strength Analysis")
+    digit_results = results.get("digits", {})
+    if digit_results:
+        digit_jodi_scores_df = pd.DataFrame(
+            [{'Jodi': k, 'Digit Score': v['digit_score'], 'Tens Digit': v['tens_digit'], 'Unit Digit': v['unit_digit']}
+             for k, v in digit_results.items()]
+        )
+        digit_jodi_scores_df = digit_jodi_scores_df.sort_values("Digit Score", ascending=False).head(top_n_predictions_config)
+        st.dataframe(digit_jodi_scores_df)
+
+        # Individual digit strength visualization
+        individual_digit_strength = results.get("individual_digit_strength", {})
+        if individual_digit_strength:
+            digit_strength_df = pd.DataFrame(individual_digit_strength.items(), columns=["Digit", "Strength Score"])
+            digit_strength_df = digit_strength_df.sort_values("Strength Score", ascending=False)
+            fig_digit_strength = px.bar(digit_strength_df, x="Digit", y="Strength Score", title="Individual Digit Strength")
+            st.plotly_chart(fig_digit_strength, use_container_width=True)
+        else:
+            st.info("No individual digit strength data to display.")
+
+    else:
+        st.info("No digit analysis data to display.")
+
+    # --- Momentum Analysis ---
+    st.subheader("Momentum Analysis")
+    momentum_data = results.get("momentum", {})
+    if momentum_data:
+        momentum_df = pd.DataFrame(momentum_data.items(), columns=["Jodi", "Momentum Score"])
+        momentum_df = momentum_df.sort_values("Momentum Score", ascending=False).head(top_n_predictions_config)
+        fig_momentum = px.bar(momentum_df, x="Jodi", y="Momentum Score", title=f"Top {top_n_predictions_config} Jodis by Momentum")
+        st.plotly_chart(fig_momentum, use_container_width=True)
+    else:
+        st.info("No momentum data to display.")
+
+    # --- Entropy Score ---
+    st.subheader("Entropy Score")
+    entropy_score = results.get("entropy", {}).get("overall_entropy_score")
+    if entropy_score is not None:
+        st.write(f"**Overall Entropy Score**: {entropy_score:.2f}")
+    else:
+        st.info("No entropy data to display.")
+
 
 # --- Historical Accuracy (Backtesting) ---
 st.header("Historical Alignment Rate (Backtesting)")
-st.info("Running backtest simulation. This may take a moment...")
-backtester = PaperBacktest(selected_data_file, min_history_days=min_history_days)
-backtest_stats = backtester.run(top_n=top_n_predictions, verbose=True) # Set verbose to True for detailed results
+st.info("Running backtest simulation. This may take a moment. The displayed 'min_history_days' is for this backtest only.")
+
+backtester = PaperBacktest(selected_data_file, min_history_days=min_history_days_config)
+backtest_stats = backtester.run(top_n=top_n_predictions_config, verbose=True) # Set verbose to True for detailed results
 
 if backtest_stats:
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Days Tested", backtest_stats['total_days_tested'])
-    col2.metric(f"Hits (Top-{backtest_stats['top_n_considered']})", backtest_stats['hits'])
-    col3.metric("Misses", backtest_stats['misses'])
+    with col1:
+        st.metric("Total Days Tested", backtest_stats['total_days_tested'])
+    with col2:
+        st.metric(f"Hits (Top-{backtest_stats['top_n_considered']})", backtest_stats['hits'])
+    with col3:
+        st.metric("Misses", backtest_stats['misses'])
+    
     st.success(f"**Historical Alignment Rate**: {backtest_stats['historical_alignment_rate']}%")
 
     if st.checkbox("Show detailed daily backtest results"):
         if "daily_results" in backtest_stats and backtest_stats["daily_results"]:
             daily_bt_df = pd.DataFrame(backtest_stats["daily_results"])
-            st.dataframe(daily_bt_df)
+            # Convert date column for better display if needed
+            daily_bt_df['date'] = daily_bt_df['date'].dt.strftime('%Y-%m-%d')
+            st.dataframe(daily_bt_df, use_container_width=True)
         else:
             st.info("No detailed daily results available. Run backtest with verbose=True.")
 else:
     st.warning("Could not run backtest simulation.")
 
 st.markdown("---")
+# Global disclaimer at the bottom
 st.markdown(f"**Note**: All outputs are historical observations only. {DISCLAIMER}")

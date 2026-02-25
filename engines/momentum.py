@@ -1,7 +1,11 @@
-# engines/momentum.py
-
-import pandas as pd
+"""
+Momentum Engine
+---------------
+Measures short-term acceleration of jodi appearances
+compared to a longer baseline.
+"""
 from typing import Dict
+import pandas as pd
 
 
 class MomentumEngine:
@@ -13,6 +17,16 @@ class MomentumEngine:
     """
 
     def __init__(self, recent_days: int = 7, baseline_days: int = 30):
+        """
+        Initializes the MomentumEngine.
+
+        Parameters
+        ----------
+        recent_days : int, optional
+            The number of recent days to consider for momentum calculation, by default 7.
+        baseline_days : int, optional
+            The number of baseline days to consider for momentum calculation, by default 30.
+        """
         if recent_days >= baseline_days:
             raise ValueError("recent_days must be less than baseline_days")
 
@@ -56,9 +70,6 @@ class MomentumEngine:
         baseline_counts = baseline_df["Jodi"].value_counts()
 
         results = {}
-
-        # Avoid division by zero
-        max_baseline = baseline_counts.max()
 
         for jodi in baseline_counts.index:
             recent = recent_counts.get(jodi, 0)

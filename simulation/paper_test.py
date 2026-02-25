@@ -1,69 +1,52 @@
-# simulation/paper_test.py
-
+"""
+Paper Backtest Simulation
+-------------------------
+Simulates historical performance of the Matka Analyzer Pro by applying
+the analysis engines on a rolling window of past data and evaluating
+the hit rate of top predictions.
+"""
+from typing import Dict
 import pandas as pd
-from typing import Dict, Tuple, List
-
 
 from engines.frequency import FrequencyEngine
 from engines.cycles import CycleEngine
 from engines.digits import DigitEngine
 from engines.momentum import MomentumEngine
 from scoring.confidence import ConfidenceEngine
+from config import TOP_N_PREDICTIONS
 
 
 class PaperBacktest:
     """
-    Paper Backtesting Simulation Engine
-    -----------------------------------
-    Simulates the performance of the Matka Analyzer Pro's confidence scoring
-    system against historical data. It operates in a walk-forward manner,
-    ensuring no look-ahead bias.
-
-    The simulation calculates how often the actual Jodi for a given day
-    appears within the top-N predicted Jodis based on historical analysis
-    up to the day before.
+    Simulates a paper trading strategy based on the confidence engine's predictions.
+    It processes historical data in a walk-forward manner, generating predictions
+    and checking if the actual result for the next day aligns with the top N predictions.
     """
 
-    def __init__(self, csv_path: str, min_history_days: int = 30):
+    def __init__(self, csv_path: str, min_history_days: int = 180):
         """
-        Initializes the PaperBacktest engine.
+        Initializes the PaperBacktest simulation.
 
         Parameters
         ----------
         csv_path : str
             Path to the CSV file containing historical Matka data.
-            Must contain 'Date' and 'Jodi' columns.
         min_history_days : int, optional
-            The minimum number of historical days required to start analysis
-            for a given day. This acts as the initial training window.
-            Defaults to 30.
+            Minimum number of days required for initial training, by default 180.
         """
-        """
-        Initializes the PaperBacktest engine.
-
-        Parameters
-        ----------
-        csv_path : str
-            Path to the CSV file containing historical Matka data.
-            Must contain 'Date' and 'Jodi' columns.
-        min_history_days : int, optional
-            The minimum number of historical days required to start analysis
-            for a given day. This acts as the initial training window.
-            Defaults to 30.
-        """
-        self.df = pd.read_csv(csv_path)
-        self.df["Date"] = pd.to_datetime(self.df["Date"])
-        self.df = self.df.sort_values("Date").reset_index(drop=True)
+        self.data_file = csv_path
         self.min_history_days = min_history_days
+        self.all_data = pd.read_csv(self.data_file)
+        self.all_data["Date"] = pd.to_datetime(self.all_data["Date"])
+        self.all_data = self.all_data.sort_values("Date").reset_index(drop=True)
 
-        # Initialize all analysis engines
-        self.freq_engine = FrequencyEngine(window_days=min_history_days)
+        self.frequency_engine = FrequencyEngine()
         self.cycle_engine = CycleEngine()
         self.digit_engine = DigitEngine()
         self.momentum_engine = MomentumEngine()
         self.confidence_engine = ConfidenceEngine()
 
-    def run(self, top_n: int = 10, verbose: bool = False) -> Dict[str, any]:
+    def run(self, top_n: int = TOP_N_PREDICTIONS, verbose: bool = False) -> Dict[str, any]:
         """
         Executes the walk-forward paper backtest simulation.
 
@@ -93,71 +76,61 @@ class PaperBacktest:
             - 'top_n_considered': The 'top_n' value used for the simulation.
             - 'daily_results': (Optional) A list of dictionaries with daily outcomes.
         """
-        hits = 0
-        misses = 0
-        total_days_tested = 0
-        daily_results = [] # To store detailed daily outcomes if needed for logging
+        total_predictions = 0
+        total_hits = 0
 
-        # Start simulation after the initial history window
-        for i in range(self.min_history_days, len(self.df)):
-            # Ensure no look-ahead bias: use data ONLY up to the day before 'i'
-            history_df = self.df.iloc[:i].copy()
-            actual_jodi = str(self.df.iloc[i]["Jodi"]).zfill(2)
-            current_date = self.df.iloc[i]["Date"]
+        unique_dates = self.all_data["Date"].unique()
+        unique_dates.sort()
 
-            if history_df.empty:
-                continue # Should not happen if min_history_days is respected
+        # Iterate through each day, pretending to be "today"
+        for i, current_date_np in enumerate(unique_dates):
+            current_date = pd.to_datetime(current_date_np)
 
-            # Run engines on the historical data
-            freq_results = self.freq_engine.run(history_df)
-            cycle_results = self.cycle_engine.run(history_df)
-            digit_results = self.digit_engine.run(history_df)
-            momentum_results = self.momentum_engine.run(history_df)
+            # Ensure enough historical data is available
+            historical_data = self.all_data[
+                self.all_data["Date"] < current_date
+            ].copy()
 
-            # Generate confidence scores
-            ranked_jodis = self.confidence_engine.run(
-                frequency=freq_results,
-                cycles=cycle_results,
-                digits=digit_results,
-                momentum=momentum_results,
-                sample_size=len(history_df),
+            if len(historical_data) < self.min_history_days:
+                continue
+
+            # Check if there's a result for "tomorrow" (the day after current_date)
+            # This is crucial to avoid look-ahead bias
+            next_day_data = self.all_data[
+                self.all_data["Date"] == current_date
+            ]
+            if next_day_data.empty:
+                continue # No result for the next day, skip this iteration
+
+            actual_jodi_tomorrow = str(next_day_data["Jodi"].iloc[0]).zfill(2)
+
+            # --- Run Engines on Historical Data (up to current_date - 1) ---
+            frequency = self.frequency_engine.run(historical_data)
+            cycles = self.cycle_engine.run(historical_data)
+            digits_output = self.digit_engine.run(historical_data)
+            digits = digits_output["jodi_scores"]
+            momentum = self.momentum_engine.run(historical_data)
+
+            # --- Get Top N Predictions for "tomorrow" ---
+            confidence_results = self.confidence_engine.run(
+                frequency,
+                cycles,
+                digits,
+                momentum,
+                sample_size=len(historical_data),
                 top_n=top_n
             )
+            top_predictions = [jodi for jodi, _, _ in confidence_results]
 
-            predicted_jodis = [jodi for jodi, _, _ in ranked_jodis]
+            total_predictions += 1
+            if actual_jodi_tomorrow in top_predictions:
+                total_hits += 1
 
-            is_hit = actual_jodi in predicted_jodis
-            if is_hit:
-                hits += 1
-            else:
-                misses += 1
-            total_days_tested += 1
+        hit_rate = (total_hits / total_predictions) * 100 if total_predictions > 0 else 0
 
-            if verbose:
-                actual_jodi_details = next(((j, s, t) for j, s, t in ranked_jodis if j == actual_jodi), None)
-                top_predicted_jodi_details = ranked_jodis[0] if ranked_jodis else (None, None, None)
-
-                daily_results.append({
-                    "date": current_date,
-                    "actual_jodi": actual_jodi,
-                    "predicted_top_n": [j for j, _, _ in ranked_jodis],
-                    "is_hit": is_hit,
-                    "actual_jodi_confidence": actual_jodi_details[1] if actual_jodi_details else None,
-                    "actual_jodi_tags": actual_jodi_details[2] if actual_jodi_details else None,
-                    "top_predicted_jodi": top_predicted_jodi_details[0],
-                    "top_predicted_confidence": top_predicted_jodi_details[1],
-                    "top_predicted_tags": top_predicted_jodi_details[2],
-                })
-
-        historical_alignment_rate = round((hits / total_days_tested) * 100, 2) if total_days_tested else 0.0
-
-        results = {
-            "total_days_tested": total_days_tested,
-            "hits": hits,
-            "misses": misses,
-            "historical_alignment_rate": historical_alignment_rate,
-            "top_n_considered": top_n,
+        return {
+            "Total Predictions Made": total_predictions,
+            f"Total Hits (within Top {top_n})": total_hits,
+            "Historical Alignment Rate": round(hit_rate, 2),
+            "Disclaimer": "Historical alignment rate is not a predictor of future outcomes."
         }
-        if verbose:
-            results["daily_results"] = daily_results
-        return results

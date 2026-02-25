@@ -1,7 +1,12 @@
-# engines/cycles.py
-
-import pandas as pd
+"""
+Cycle / Gap Analyzer Engine
+---------------------------
+Computes recency-based cycle scores for jodis.
+"""
 from typing import Dict
+import pandas as pd
+
+from scoring.utils import validate_df
 
 
 class CycleEngine:
@@ -16,7 +21,7 @@ class CycleEngine:
         Initializes the CycleEngine.
         This engine currently does not require any specific parameters during initialization.
         """
-        pass
+
 
     def run(self, df: pd.DataFrame) -> Dict[str, dict]:
         """
@@ -38,14 +43,7 @@ class CycleEngine:
               }
             }
         """
-
-        # --- Validation ---
-        required_cols = {"Date", "Jodi"}
-        if not required_cols.issubset(df.columns):
-            raise ValueError(f"Missing required columns: {required_cols}")
-
-        data = df.copy()
-        data["Date"] = pd.to_datetime(data["Date"])
+        data = validate_df(df)
 
         latest_date = data["Date"].max()
 

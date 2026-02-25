@@ -1,17 +1,25 @@
-# scoring/confidence.py
-
+"""
+Confidence Engine
+-----------------
+Calculates a unified confidence score for each Jodi based on
+contributions from Frequency, Cycles, Digits, and Momentum engines.
+"""
 from typing import Dict, List, Tuple
 from config import (
     CONFIDENCE_WEIGHTS,
     HIGH_FREQ_THRESHOLD, LOW_FREQ_THRESHOLD,
     STRONG_DIGIT_THRESHOLD, WEAK_DIGIT_THRESHOLD,
     HIGH_MOMENTUM_THRESHOLD, LOW_MOMENTUM_THRESHOLD,
-    BALANCED_SIGNAL_LOWER, BALANCED_SIGNAL_UPPER,
-    MODERATE_SIGNAL_LOWER
+    BALANCED_SIGNAL_LOWER, BALANCED_SIGNAL_UPPER
 )
 
 
 class ConfidenceEngine:
+    """
+    Combines various analytical engine outputs to produce a single
+    confidence score for each Jodi.
+    """
+
     def data_confidence_factor(self, sample_size: int) -> float:
         """
         Calculates a data confidence factor based on the available sample size.
@@ -31,11 +39,11 @@ class ConfidenceEngine:
         """
         if sample_size < 30:
             return 0.40
-        elif sample_size < 60:
+        if sample_size < 60:
             return 0.60
-        elif sample_size < 120:
+        if sample_size < 120:
             return 0.75
-        elif sample_size < 250:
+        if sample_size < 250:
             return 0.90
         return 1.00
 
@@ -56,13 +64,13 @@ class ConfidenceEngine:
 
     def run(
        self,
-       frequency,
-       cycles,
-       digits,
-       momentum,
+       frequency: Dict[str, float],
+       cycles: Dict[str, Dict],
+       digits: Dict[str, Dict],
+       momentum: Dict[str, float],
        sample_size: int,
        top_n: int = 10,
-    ):
+    ) -> List[Tuple[str, float, List[str]]]:
 
         """
         Calculates a unified confidence score for each Jodi based on
@@ -73,9 +81,11 @@ class ConfidenceEngine:
         frequency : Dict[str, float]
             Jodi to frequency score (0-100). Expected to be normalized between 0 and 100.
         cycles : Dict[str, dict]
-            Jodi to cycle analysis results (e.g., {'cycle_score': 50, 'status': 'NORMAL'}). Expected 'cycle_score' to be normalized between 0 and 100.
+            Jodi to cycle analysis results (e.g., {'cycle_score': 50, 'status': 'NORMAL'}).
+            Expected 'cycle_score' to be normalized between 0 and 100.
         digits : Dict[str, dict]
-            Jodi to digit analysis results (e.g., {'digit_score': 75, ...}). Expected 'digit_score' to be normalized between 0 and 100.
+            Jodi to digit analysis results (e.g., {'digit_score': 75, ...}).
+            Expected 'digit_score' to be normalized between 0 and 100.
         momentum : Dict[str, float]
             Jodi to momentum score (0-200, capped). This will be normalized to 0-100 internally.
         sample_size : int
@@ -94,14 +104,19 @@ class ConfidenceEngine:
         tags = {}
 
         # Combine all unique jodis from all engines
-        all_jodis = set(frequency.keys()) | set(cycles.keys()) | set(digits.keys()) | set(momentum.keys())
+        all_jodis = (
+            set(frequency.keys())
+            | set(cycles.keys())
+            | set(digits.keys())
+            | set(momentum.keys())
+        )
 
         for jodi in all_jodis:
             # Get scores from each engine, defaulting to a neutral value if not present
             freq_score = frequency.get(jodi, 0)
             digit_info = digits.get(jodi, {"digit_score": 50})
             digit_score = digit_info.get("digit_score", 50)
-            momentum_score_raw = momentum.get(jodi, 50) # Default to 50 (neutral)
+            momentum_score_raw = momentum.get(jodi, 50)  # Default to 50 (neutral)
             cycle_info = cycles.get(jodi, {"cycle_score": 50, "status": "NORMAL"})
             cycle_score_raw = cycle_info.get("cycle_score", 50)
             cycle_status = cycle_info.get("status", "NORMAL")
@@ -111,14 +126,17 @@ class ConfidenceEngine:
             # A raw score of 100 means neutral momentum, so 50 after scaling.
             # A raw score of 200 means strong momentum, so 100 after scaling.
             momentum_score_normalized = (momentum_score_raw / 200) * 100
-            momentum_score_normalized = min(max(momentum_score_normalized, 0), 100) # Ensure 0-100 range
+            # Ensure 0-100 range
+            momentum_score_normalized = min(
+                max(momentum_score_normalized, 0), 100
+            )
 
             # --- Calculate Weighted Score ---
             # All component scores are now 0-100
             weighted_sum = (
-                freq_score * self.weights["frequency"] +
-                digit_score * self.weights["digits"] +
-                momentum_score_normalized * self.weights["momentum"]
+                freq_score * self.weights["frequency"]
+                + digit_score * self.weights["digits"]
+                + momentum_score_normalized * self.weights["momentum"]
             )
 
             # --- Cycle Contribution (adjusted based on status) ---
@@ -168,14 +186,12 @@ class ConfidenceEngine:
             elif momentum_score_normalized <= LOW_MOMENTUM_THRESHOLD:
                 tag_list.append("LOW_MOMENTUM")
 
-            if final_score >= BALANCED_SIGNAL_LOWER and final_score <= BALANCED_SIGNAL_UPPER:
-                tag_list.append("BALANCED_SIGNAL")
-            elif final_score < BALANCED_SIGNAL_LOWER:
+            if final_score < BALANCED_SIGNAL_LOWER:
                 tag_list.append("WEAK_SIGNAL")
-            elif final_score > MODERATE_SIGNAL_LOWER:
+            elif final_score <= BALANCED_SIGNAL_UPPER:
+                tag_list.append("BALANCED_SIGNAL")
+            else: # final_score > BALANCED_SIGNAL_UPPER
                 tag_list.append("MODERATE_SIGNAL")
-            else:
-                tag_list.append("NORMAL_SIGNAL")
 
 
             tags[jodi] = tag_list

@@ -1,7 +1,11 @@
-# engines/digits.py
-
-import pandas as pd
+"""
+Digit Engine
+------------
+Analyzes the frequency and strength of individual digits (0-9)
+within Jodis to identify biases.
+"""
 from typing import Dict
+import pandas as pd
 
 
 class DigitEngine:
@@ -17,7 +21,7 @@ class DigitEngine:
         Initializes the DigitEngine.
         This engine currently does not require any specific parameters during initialization.
         """
-        pass
+
 
     def run(self, df: pd.DataFrame) -> Dict[str, dict]:
         """
