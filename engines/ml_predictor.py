@@ -35,12 +35,17 @@ class MLPredictor:
     def train(self):
         df_feat = self.engineer_features()
         features = ['sum', 'digit1', 'digit2', 'dayofweek', 'lag1']
-        X = df_feat[features]
-        y = self.le.fit_transform(df_feat['Jodi'])
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        
+        # TIME SERIES SPLIT (no future leak)
+        split_idx = int(len(df_feat) * 0.8)
+        X_train = df_feat[features].iloc[:split_idx]
+        y_train = self.le.fit_transform(df_feat['Jodi'].iloc[:split_idx])
+        X_test = df_feat[features].iloc[split_idx:]
+        y_test = self.le.transform(df_feat['Jodi'].iloc[split_idx:])
+        
         self.model = XGBClassifier(random_state=42).fit(X_train, y_train)
-        acc = self.model.score(X_test, y_test)
-        print(f"ML Accuracy: {acc:.2%}")
+        acc = self.model.score(X_test, y_test)  # Test only!
+        print(f"ML Test Accuracy: {acc:.2%}")  # Expect 15-30%
         return acc
     
     def predict_top(self, n=10):
