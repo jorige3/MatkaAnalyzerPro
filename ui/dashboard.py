@@ -10,6 +10,16 @@ pattern recognition in historical time-series data. It explicitly avoids
 any form of gambling advice or prediction.
 """
 
+import sys
+import os
+
+# Get the absolute path of the directory containing dashboard.py
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent directory (matka_analyzer/)
+parent_dir = os.path.dirname(current_dir)
+# Add the parent directory to sys.path
+sys.path.insert(0, parent_dir)
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -67,7 +77,7 @@ if confidence_results:
             title=f"Top {top_n_predictions_config} Jodis by Confidence",
             hover_data=["Tags"]
         )
-        st.plotly_chart(fig_conf, use_container_width=True)
+        st.plotly_chart(fig_conf, width='stretch')
 else:
     st.info("No confidence alignments to display.")
 
@@ -81,7 +91,7 @@ with st.expander("Expand to view detailed engine outputs"):
         freq_df = pd.DataFrame(frequency_data.items(), columns=["Jodi", "Frequency Score"])
         freq_df = freq_df.sort_values("Frequency Score", ascending=False).head(top_n_predictions_config)
         fig_freq = px.bar(freq_df, x="Jodi", y="Frequency Score", title=f"Top {top_n_predictions_config} Jodis by Frequency")
-        st.plotly_chart(fig_freq, use_container_width=True)
+        st.plotly_chart(fig_freq, width='stretch')
     else:
         st.info("No frequency data to display.")
 
@@ -91,7 +101,7 @@ with st.expander("Expand to view detailed engine outputs"):
     if cycle_data:
         cycle_status_counts = pd.DataFrame([v["status"] for v in cycle_data.values()], columns=["Status"])
         fig_cycle = px.pie(cycle_status_counts, names="Status", title="Cycle Status Distribution")
-        st.plotly_chart(fig_cycle, use_container_width=True)
+        st.plotly_chart(fig_cycle, width='stretch')
 
         due_jodis = [jodi for jodi, data in cycle_data.items() if data["status"] == "DUE"]
         exhausted_jodis = [jodi for jodi, data in cycle_data.items() if data["status"] == "EXHAUSTED"]
@@ -122,7 +132,7 @@ with st.expander("Expand to view detailed engine outputs"):
             digit_strength_df = pd.DataFrame(individual_digit_strength.items(), columns=["Digit", "Strength Score"])
             digit_strength_df = digit_strength_df.sort_values("Strength Score", ascending=False)
             fig_digit_strength = px.bar(digit_strength_df, x="Digit", y="Strength Score", title="Individual Digit Strength")
-            st.plotly_chart(fig_digit_strength, use_container_width=True)
+            st.plotly_chart(fig_digit_strength, width='stretch')
         else:
             st.info("No individual digit strength data to display.")
 
@@ -136,7 +146,7 @@ with st.expander("Expand to view detailed engine outputs"):
         momentum_df = pd.DataFrame(momentum_data.items(), columns=["Jodi", "Momentum Score"])
         momentum_df = momentum_df.sort_values("Momentum Score", ascending=False).head(top_n_predictions_config)
         fig_momentum = px.bar(momentum_df, x="Jodi", y="Momentum Score", title=f"Top {top_n_predictions_config} Jodis by Momentum")
-        st.plotly_chart(fig_momentum, use_container_width=True)
+        st.plotly_chart(fig_momentum, width='stretch')
     else:
         st.info("No momentum data to display.")
 
@@ -149,12 +159,16 @@ with st.expander("Expand to view detailed engine outputs"):
         st.info("No entropy data to display.")
 
 
-# --- Historical Accuracy (Backtesting) ---
+@st.cache_data
+def run_backtest(data_file, min_history_days, top_n_predictions):
+    backtester = PaperBacktest(data_file, min_history_days=min_history_days)
+    return backtester.run(top_n=top_n_predictions, verbose=True)
+
+# --- Historical Alignment Rate (Backtesting) ---
 st.header("Historical Alignment Rate (Backtesting)")
 st.info("Running backtest simulation. This may take a moment. The displayed 'min_history_days' is for this backtest only.")
 
-backtester = PaperBacktest(selected_data_file, min_history_days=min_history_days_config)
-backtest_stats = backtester.run(top_n=top_n_predictions_config, verbose=True) # Set verbose to True for detailed results
+backtest_stats = run_backtest(selected_data_file, min_history_days_config, top_n_predictions_config)
 
 if backtest_stats:
     col1, col2, col3 = st.columns(3)
@@ -172,7 +186,7 @@ if backtest_stats:
             daily_bt_df = pd.DataFrame(backtest_stats["daily_results"])
             # Convert date column for better display if needed
             daily_bt_df['date'] = daily_bt_df['date'].dt.strftime('%Y-%m-%d')
-            st.dataframe(daily_bt_df, use_container_width=True)
+            st.dataframe(daily_bt_df, width='stretch')
         else:
             st.info("No detailed daily results available. Run backtest with verbose=True.")
 else:

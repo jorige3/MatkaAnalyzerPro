@@ -1,188 +1,79 @@
-import logging
 import pandas as pd
-from data.data_loader import DataLoader
-from simulation.paper_test import PaperBacktest
-from engines.frequency import FrequencyEngine
-from engines.cycles import CycleEngine
-from engines.digits import DigitEngine
-from engines.momentum import MomentumEngine
-from engines.entropy import EntropyEngine
-from engines.ml_predictor import MLPredictor # New import
-from scoring.confidence import ConfidenceEngine
-from config import DATA_FILE, SCHEMA_FILE, DISCLAIMER, MIN_HISTORY_DAYS, TOP_N_PREDICTIONS
+import numpy as np
+from engines.ml_predictor import MLPredictor
+from engines.statistical_analysis import StatisticalAnalyzer
+from engines.monte_carlo import MonteCarloSimulator
+from config import DATA_FILE, DISCLAIMER
 
 
-def run_engines(df: pd.DataFrame) -> dict:
-    """
-    Executes all analysis engines (Frequency, Cycles, Digits, Momentum, Entropy)
-    and the ConfidenceEngine on the provided DataFrame.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The input DataFrame containing historical Matka data.
-
-    Returns
-    -------
-    dict
-        A dictionary containing the results from each engine:
-        - 'frequency': Results from FrequencyEngine.
-        - 'cycles': Results from CycleEngine.
-        - 'digits': Jodi-specific digit scores from DigitEngine.
-        - 'individual_digit_strength': Individual digit strengths from DigitEngine.
-        - 'momentum': Results from MomentumEngine.
-        - 'entropy': Overall entropy score from EntropyEngine.
-        - 'confidence': Results from ConfidenceEngine (ranked Jodis with scores and tags).
-    """
-    logging.info("Running analysis engines...")
-    results = {}
-
-    freq_engine = FrequencyEngine(window_days=30)
-    cycle_engine = CycleEngine()
-    digit_engine = DigitEngine()
-    momentum_engine = MomentumEngine()
-    entropy_engine = EntropyEngine()
-    conf_engine = ConfidenceEngine()
-
-    frequency = freq_engine.run(df)
-    cycles = cycle_engine.run(df)
-    digits_output = digit_engine.run(df)
-    digits = digits_output["jodi_scores"]
-    momentum = momentum_engine.run(df)
-    entropy = entropy_engine.run(df)
-
-    confidence = conf_engine.run(frequency, cycles, digits, momentum, sample_size=len(df), top_n=TOP_N_PREDICTIONS)
-
-    results["frequency"] = frequency
-    results["cycles"] = cycles
-    results["digits"] = digits
-    results["individual_digit_strength"] = digits_output["individual_digit_strength"]
-    results["momentum"] = momentum
-    results["entropy"] = entropy
-    results["confidence"] = confidence
-
-    logging.info("Analysis engines finished.")
-    return results
-
-
-def summarize(results: dict, top_n: int = TOP_N_PREDICTIONS):
-    """
-    Prints a summary of the analysis results to the console.
-
-    Includes:
-    - Top Confidence Alignments (Jodis with highest confidence scores and their tags).
-    - Summary of Frequency Analysis (top Jodis by frequency).
-    - Summary of Cycle Analysis (counts of 'DUE' and 'EXHAUSTED' cycles).
-    - Summary of Digit Strength Analysis (top Jodis by digit score).
-    - Summary of Momentum Analysis (top Jodis by momentum score).
-    - Overall Entropy Score.
-
-    Parameters
-    ----------
-    results : dict
-        The dictionary containing all analysis results from run_engines.
-    top_n : int, optional
-        The number of top Jodis to display for each summary section, by default TOP_N_PREDICTIONS.
-    """
-    confidence = results.get("confidence", [])
-    if confidence:
-        logging.info("\nTop Confidence Alignments:")
-        for jodi, score, tags in confidence:
-            logging.info(
-                f"  Jodi {jodi} → "
-                f"Score: {score} | "
-                f"Tags: {', '.join(tags)}"
-            )
-
-
-    logging.info("\n=== Matka Analyzer Pro : Analysis Summary ===\n")
-
-    # Frequency summary
-    freq = results.get("frequency", {})
-    if freq:
-        logging.info("Top Frequency Jodis (Last 30 Days):")
-        for jodi, score in sorted(freq.items(), key=lambda x: x[1], reverse=True)[:top_n]:
-            logging.info(f"  Jodi {jodi} → Frequency Score: {score}")
-        logging.info("")
-
-    # Cycle summary
-    cycles = results.get("cycles", {})
-    if cycles:
-        due = [j for j, v in cycles.items() if v["status"] == "DUE"]
-        exhausted = [j for j, v in cycles.items() if v["status"] == "EXHAUSTED"]
-
-        logging.info(f"DUE Zone Count       : {len(due)}")
-        logging.info(f"EXHAUSTED Zone Count : {len(exhausted)}")
-
-    logging.info("\nNote: All outputs are historical observations only.\n")
-
-    # Digit summary
-    digits = results.get("digits", {})
-    if digits:
-        logging.info("\nTop Digit-Strength Jodis:")
-        for j, info in sorted(
-            digits.items(),
-            key=lambda x: x[1]["digit_score"],
-            reverse=True
-        )[:top_n]:
-            logging.info(
-                f"  Jodi {j} → Digit Score: {info['digit_score']} "
-                f"(digits {info['tens_digit']},{info['unit_digit']})"
-            )
-
-    # Momentum summary
-    momentum = results.get("momentum", {})
-    if momentum:
-        logging.info("\nTop Momentum Jodis:")
-        for j, score in sorted(
-            momentum.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:top_n]:
-            logging.info(f"  Jodi {j} → Momentum Score: {score}")
-
-    # Entropy summary
-    entropy_score = results.get("entropy", {}).get("overall_entropy_score")
-    if entropy_score is not None:
-        logging.info(f"\nOverall Entropy Score: {entropy_score}")
 
 def main():
     """
-    Orchestrates the entire Matka Analyzer Pro analysis process.
-    This includes:
-    1. Loading historical data.
-    2. Running various analysis engines (Frequency, Cycles, Digits, Momentum, Entropy).
-    3. Calculating confidence scores.
-    4. Performing a paper backtest simulation.
-    5. Summarizing and printing the results to the console.
+    Main function to run the ML validation and statistical analysis workflow.
     """
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-    logging.info(DISCLAIMER)
-    logging.info("Starting Matka Analyzer Pro...")
-    data_loader = DataLoader(file_path=DATA_FILE, schema_path=SCHEMA_FILE)
-    df = data_loader.load_data()
-    logging.info(f"Loaded {len(df)} records from {DATA_FILE}")
-    results = run_engines(df)
+    print(DISCLAIMER)
+    print("\nStarting Matka Analyzer Statistical Validation...")
 
-    # --- ML Predictor Integration ---
-    logging.info("\n=== ML Predictor ===")
-    ml_predictor = MLPredictor(df_path=DATA_FILE)
-    ml_accuracy = ml_predictor.train()
-    logging.info(f"ML Model Trained. Accuracy: {ml_accuracy:.2%}")
-    ml_top_predictions = ml_predictor.predict_top(n=TOP_N_PREDICTIONS)
-    logging.info(f"ML Top {TOP_N_PREDICTIONS} Predictions: {', '.join(map(str, ml_top_predictions))}")
+    try:
+        # 1️⃣ Load Data
+        print(f"Loading data from '{DATA_FILE}'...")
+        df = pd.read_csv(DATA_FILE)
 
+        if df.empty:
+            print("Error: Data file is empty. Cannot proceed.")
+            return
 
-    backtester = PaperBacktest(DATA_FILE, min_history_days=MIN_HISTORY_DAYS)
-    backtest_stats = backtester.run(top_n=TOP_N_PREDICTIONS)
+        df.columns = df.columns.str.lower()
+        print(f"Loaded {len(df)} records.")
 
-    logging.info("\n=== Paper Backtest Results ===")
-    for k, v in backtest_stats.items():
-        logging.info(f"{k}: {v}")
+        # 2️⃣ Statistical Analysis
+        analyzer = StatisticalAnalyzer(df)
 
-    summarize(results)
-    logging.info(f"\nData Confidence Factor Applied (rows={len(df)})")
-    logging.info("\nAnalysis Complete. Use 'streamlit run ui/dashboard.py' to visualize.")
+        entropy, max_entropy = analyzer.shannon_entropy()
+        print("\n--- Entropy Analysis ---")
+        print(f"Entropy: {entropy:.4f}")
+        print(f"Maximum Possible Entropy: {max_entropy:.4f}")
+
+        chi_stat, p_value = analyzer.chi_square_test()
+        print("\n--- Chi-Square Test ---")
+        print(f"Chi-Square Statistic: {chi_stat:.4f}")
+        print(f"P-Value: {p_value:.6f}")
+
+        auto = analyzer.autocorrelation(lag=1)
+        print("\n--- Autocorrelation (Lag 1) ---")
+        print(f"Autocorrelation: {auto:.6f}")
+
+        streak = analyzer.longest_streak()
+        print("\n--- Longest Streak ---")
+        print(f"Longest Repeating Streak: {streak}")
+
+        
+
+        print("\n--- Monte Carlo Simulation ---")
+        mc = MonteCarloSimulator(df["jodi"], simulations=300)
+
+        simulation_results = mc.run()
+        real_results = mc.real_metrics()
+
+        print("\nReal Data Metrics:")
+        for k, v in real_results.items():
+            print(f"{k}: {v}")
+
+            print("\nSimulation Averages:")
+            print(f"Average Streak: {np.mean(simulation_results['streaks']):.2f}")
+            print(f"Average Entropy: {np.mean(simulation_results['entropies']):.4f}")
+            print(f"Average Max Frequency: {np.mean(simulation_results['max_freqs']):.2f}")
+ 
+            mc.plot_results(simulation_results, real_results)
+        # 3️⃣ ML Validation
+        predictor = MLPredictor()
+        predictor.walk_forward_validation(df)
+        predictor.shuffle_test(df)
+
+    except FileNotFoundError:
+        print(f"FATAL ERROR: The data file '{DATA_FILE}' was not found.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
 
 if __name__ == "__main__":
