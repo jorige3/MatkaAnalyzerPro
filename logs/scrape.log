@@ -1,9 +1,0 @@
-WARNING:__main__:Could not find a table with class 'table-bordered'. Trying to find any table.
-INFO:__main__:Found 270 rows in the table.
-INFO:__main__:Scraped 1861 historical records.
-INFO:__main__:Filtered data to 1140 records between 2023-01-01 and 2026-12-31.
-INFO:__main__:First 5 filtered records:
-[{'Date': '2023-01-01', 'Jodi': '16'}, {'Date': '2023-01-02', 'Jodi': '27'}, {'Date': '2023-01-03', 'Jodi': '09'}, {'Date': '2023-01-04', 'Jodi': '36'}, {'Date': '2023-01-05', 'Jodi': '92'}]
-INFO:__main__:Last 5 filtered records:
-[{'Date': '2026-02-20', 'Jodi': '92'}, {'Date': '2026-02-21', 'Jodi': '87'}, {'Date': '2026-02-22', 'Jodi': '42'}, {'Date': '2026-02-23', 'Jodi': '72'}, {'Date': '2026-02-24', 'Jodi': '13'}]
-INFO:__main__:Overwrote data/sridevi.csv with 1140 rows.
