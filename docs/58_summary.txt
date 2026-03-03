@@ -1,0 +1,10 @@
+Jodi 58 Analysis Report
+==============================
+Total Occurrences  : 13
+Expected (Uniform) : 11.47
+Z-Score            : 0.4540
+Frequency Score    : 56.67/100
+Last Occurrence    : 2026-02-26
+Days Since Last    : 5
+Rolling (30d) Freq : 2.0
+Dataset Size       : 1147
