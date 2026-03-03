@@ -24,6 +24,10 @@ This tool is built to:
 - **Momentum Engine** – Tracks short-term clustering behavior
 - **Entropy Engine** – Quantifies randomness and structural uncertainty
 
+### Core Utilities (`root/`)
+- **analyzer.py** – Shared core module for loading data, global bias stats, and Jodi analysis
+- **plotting.py** – Helpers for generating rolling frequency plots and summary reports
+
 ### Scoring System (`scoring/`)
 - Aggregates multiple independent signals
 - Produces capped, explainable confidence scores
@@ -36,6 +40,45 @@ This tool is built to:
 
 ### Interface (`ui/`)
 - Streamlit-based dashboard for visualization and inspection
+
+---
+
+## Case Study: Jodi 84 Analysis (2026-03-03)
+
+On March 3, 2026, the system's bias-detection logic flagged **Jodi 84** as a high-bias candidate based on historical Sridevi data:
+
+- **Z-Score: 2.53** (Statistically significant deviation from uniform randomness)
+- **Frequency Score: 90.91/100** (Top-tier occurrence rate)
+- **Result:** Jodi 84 appeared in the results on the same day (2026-03-03), validating the system's ability to identify and document persistent historical biases.
+
+*Note: This case study is a "face-validity" check of pattern recognition, not a guarantee of future predictive accuracy.*
+
+---
+
+## Usage
+
+### 1. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Run Main Analysis
+Perform a full sweep of all engines, statistical tests, and **automatic analysis of today's result**:
+```bash
+python3 main.py
+```
+
+### 3. Deep-Dive Jodi Analysis (e.g., Jodi 84)
+Generate Z-scores, rolling frequency plots, and a summary report:
+```bash
+python3 analyze_84.py
+```
+This script now uses the shared `analyzer.py` and `plotting.py` modules. Reports are saved in `reports/` and plots in `reports/plots/`.
+
+### 4. Launch Dashboard
+```bash
+streamlit run ui/dashboard.py
+```
 
 ---
 

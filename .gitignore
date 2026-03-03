@@ -4,3 +4,5 @@ venv/
 logs/
 *.log
 data/*.csv
+!data/sridevi.csv
+reports/
