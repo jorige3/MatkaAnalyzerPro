@@ -3,10 +3,21 @@ Random Baseline Backtest
 ------------------------
 Simulates random top-N predictions to compare against model performance.
 """
+import sys
+import os
+
+# Get the absolute path of the directory containing random_baseline.py
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent directory (matka_analyzer/)
+parent_dir = os.path.dirname(current_dir)
+# Add the parent directory to sys.path
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
 from typing import Dict, Any
 import pandas as pd
 import random
+from config import DATA_FILE, MIN_HISTORY_DAYS
 
 
 class RandomBaselineBacktest:
@@ -88,3 +99,9 @@ class RandomBaselineBacktest:
             results["daily_results"] = daily_results
 
         return results
+
+if __name__ == "__main__":
+    print("--- Running Random Baseline Backtest ---")
+    baseline = RandomBaselineBacktest(DATA_FILE, min_history_days=MIN_HISTORY_DAYS)
+    res = baseline.run(top_n=10, verbose=False)
+    print(f"Random Baseline (Top-10): {res['hit_rate_percent']}% Hit Rate")

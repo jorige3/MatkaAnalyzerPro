@@ -5,6 +5,17 @@ Simulates historical performance of the Matka Analyzer Pro by applying
 the analysis engines on a rolling window of past data and evaluating
 the hit rate of top predictions.
 """
+import sys
+import os
+
+# Get the absolute path of the directory containing paper_test.py
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent directory (matka_analyzer/)
+parent_dir = os.path.dirname(current_dir)
+# Add the parent directory to sys.path
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
 from typing import Dict, Any
 import pandas as pd
 import numpy as np
@@ -14,7 +25,7 @@ from engines.cycles import CycleEngine
 from engines.digits import DigitEngine
 from engines.momentum import MomentumEngine
 from scoring.confidence import ConfidenceEngine
-from config import TOP_N_PREDICTIONS
+from config import TOP_N_PREDICTIONS, DATA_FILE, MIN_HISTORY_DAYS
 
 
 class PaperBacktest:
@@ -137,10 +148,8 @@ class PaperBacktest:
 
     def backtest_simple_strategy(self, z_threshold: float = 1.5, due_days: int = 7, verbose: bool = False) -> Dict[str, Any]:
         """
-        Backtests a simple strategy: Bet on Jodis with Z-score > threshold and last hit >= due_days ago.
+        Optimized backtest for a simple strategy: Z-score > threshold and last hit >= due_days ago.
         """
-        from analyzer import analyze_jodi
-        
         total_days = 0
         total_hits = 0
         total_bets = 0
@@ -148,8 +157,9 @@ class PaperBacktest:
         unique_dates = np.sort(self.all_data["Date"].unique())
         
         for current_date in unique_dates:
-            historical_data = self.all_data[self.all_data["Date"] < current_date].copy()
-            if len(historical_data) < self.min_history_days:
+            historical_data = self.all_data[self.all_data["Date"] < current_date]
+            n = len(historical_data)
+            if n < self.min_history_days:
                 continue
                 
             current_day_data = self.all_data[self.all_data["Date"] == current_date]
@@ -157,13 +167,26 @@ class PaperBacktest:
                 continue
             actual_jodi = str(current_day_data["Jodi"].iloc[0]).zfill(2)
             
-            # Identify candidates
+            # Vectorized computation of counts and Z-scores
+            counts = historical_data["Jodi"].value_counts()
+            expected = n / 100.0
+            std_dev = np.sqrt(n * 0.01 * 0.99)
+            
+            # Recency calculation (last date for each Jodi)
+            last_dates = historical_data.groupby("Jodi")["Date"].max()
+            
             candidates = []
             for j in range(100):
                 j_str = str(j).zfill(2)
-                res = analyze_jodi(historical_data, j_str)
-                if res['z_score'] > z_threshold and (res['days_since'] is None or res['days_since'] >= due_days):
-                    candidates.append(j_str)
+                cnt = counts.get(j_str, 0)
+                z = (cnt - expected) / std_dev if std_dev > 0 else 0
+                
+                if z > z_threshold:
+                    last_date = last_dates.get(j_str)
+                    days_since = (current_date - last_date).days if pd.notnull(last_date) else None
+                    
+                    if days_since is None or days_since >= due_days:
+                        candidates.append(j_str)
             
             if not candidates:
                 continue
@@ -191,3 +214,17 @@ class PaperBacktest:
             print(f"Simple Strategy Backtest: {results}")
             
         return results
+
+if __name__ == "__main__":
+    from config import DATA_FILE, MIN_HISTORY_DAYS
+    
+    print("--- Running Paper Backtest (Top-N Confidence) ---")
+    backtester = PaperBacktest(DATA_FILE, min_history_days=MIN_HISTORY_DAYS)
+    
+    # 1. Standard Engine-based Backtest
+    results = backtester.run(top_n=10, verbose=True)
+    print(f"Engine Results: {results['historical_alignment_rate']}% Hit Rate")
+    
+    # 2. Simple Z-Score Strategy Backtest
+    print("\n--- Running Simple Z-Score Strategy Backtest ---")
+    simple_results = backtester.backtest_simple_strategy(z_threshold=1.5, due_days=7, verbose=True)
