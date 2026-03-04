@@ -103,9 +103,30 @@ def main():
         print("\nTOP RANKED CONFIDENCE ALIGNMENTS:")
         print(f"{'Jodi':<6} | {'Score':<8} | {'Tags'}")
         print("-" * 40)
+        top_ranked_jodis = []
         for jodi, score, tags in results["confidence"]:
+            top_ranked_jodis.append(jodi)
             tags_str = ", ".join(tags)
             print(f"{jodi:<6} | {score:<8.2f} | {tags_str}")
+
+        # --- Filtered Candidates Analysis ---
+        from analyzer import analyze_jodi, filter_candidates
+        z_scores = {}
+        gaps = {}
+        for j in top_ranked_jodis:
+            res = analyze_jodi(df, j)
+            z_scores[j] = res['z_score']
+            gaps[j] = res['days_since'] if res['days_since'] is not None else 999
+            
+        filtered = filter_candidates(top_ranked_jodis, z_scores, gaps, z_thresh=1.5, gap_thresh=2)
+        if filtered:
+            print("\nFILTERED CANDIDATES (Z > 1.5, GAP >= 2):")
+            print(f"{'Jodi':<6} | {'Z-Score':<8} | {'Gap'}")
+            print("-" * 30)
+            for j in filtered:
+                print(f"{j:<6} | {z_scores[j]:<8.2f} | {gaps[j]:<3} days")
+        else:
+            print("\nFILTERED CANDIDATES: None found meeting Z > 1.5 and Gap >= 2.")
 
         # 3️⃣ Statistical Analysis
         print("\n--- Performing Statistical Validation ---")

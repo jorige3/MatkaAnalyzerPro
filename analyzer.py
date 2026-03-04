@@ -95,3 +95,13 @@ def backtest_strategy(df: pd.DataFrame, jodis: list, window: int = 30) -> float:
     df_copy["hit"] = df_copy["Jodi"].isin(jodis).astype(int)
     win_rate = df_copy["hit"].mean()
     return win_rate
+
+def filter_candidates(top_jodis: list, z_scores: dict, last_hit_days: dict, z_thresh: float = 1.5, gap_thresh: int = 2) -> list:
+    """
+    Filters a list of Jodis based on a minimum Z-score and a minimum gap since the last hit.
+    Useful for identifying 'due' candidates that show statistical bias.
+    """
+    return [
+        j for j in top_jodis
+        if z_scores.get(j, 0) >= z_thresh and (last_hit_days.get(j) is None or last_hit_days.get(j) >= gap_thresh)
+    ]
