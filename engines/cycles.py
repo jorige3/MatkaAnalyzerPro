@@ -26,24 +26,13 @@ class CycleEngine:
     def run(self, df: pd.DataFrame) -> Dict[str, dict]:
         """
         Run cycle (gap) analysis.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Must contain columns: ['Date', 'Jodi']
-
-        Returns
-        -------
-        Dict[str, dict]
-            {
-              jodi: {
-                'days_since': int,
-                'cycle_score': float (0–100),
-                'status': 'DUE' | 'NORMAL' | 'EXHAUSTED'
-              }
-            }
         """
+        if df is None or df.empty:
+            return {}
+
         data = validate_df(df)
+        if len(data) < 2:
+            return {}
 
         latest_date = data["Date"].max()
 
@@ -53,6 +42,9 @@ class CycleEngine:
             .groupby("Jodi")["Date"]
             .last()
         )
+
+        if last_seen.empty:
+            return {}
 
         days_since = (latest_date - last_seen).dt.days
 

@@ -41,6 +41,18 @@ selected_data_file = st.sidebar.selectbox("Select Data File", [DATA_FILE])
 min_history_days_config = st.sidebar.slider("Minimum History Days for Backtest", 10, 100, MIN_HISTORY_DAYS)
 top_n_predictions_config = st.sidebar.slider("Top N Predictions for Display & Backtest", 1, 20, TOP_N_PREDICTIONS)
 
+# Generate report text for download
+def generate_report_text(df, results):
+    latest_date = df['Date'].max().strftime('%Y-%m-%d')
+    report = f"Matka Analyzer Pro: Analysis Report for {latest_date}\n"
+    report += "=" * 50 + "\n\n"
+    report += "TOP CONFIDENCE ALIGNMENTS:\n"
+    report += f"{'Jodi':<6} | {'Score':<8} | {'Tags'}\n"
+    report += "-" * 50 + "\n"
+    for jodi, score, tags in results.get("confidence", []):
+        report += f"{jodi:<6} | {score:<8.2f} | {', '.join(tags)}\n"
+    return report
+
 # --- Data Loading and Engine Run ---
 @st.cache_data
 def load_and_run_analysis(data_file, schema_file, min_hist_days_param):
@@ -55,6 +67,14 @@ def load_and_run_analysis(data_file, schema_file, min_hist_days_param):
 
 # Use selected values from sidebar
 df, results = load_and_run_analysis(selected_data_file, SCHEMA_FILE, min_history_days_config)
+
+report_text = generate_report_text(df, results)
+st.sidebar.download_button(
+    label="Download Analysis Report (.txt)",
+    data=report_text,
+    file_name=f"analysis_{df['Date'].max().strftime('%Y%m%d')}.txt",
+    mime="text/plain"
+)
 
 st.subheader("Data Overview")
 st.write(f"Loaded {len(df)} records from `{selected_data_file}`.")

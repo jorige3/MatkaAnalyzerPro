@@ -37,36 +37,45 @@ class MLPredictor:
 
     def _engineer_features(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
         """
-        Creates a simple, leak-proof feature set based on lag values.
-        This function is safe to call on the entire dataset at once because it
-        only uses past data (`shift(k)` where k > 0) to create features.
+        Creates an enhanced, leak-proof feature set.
+        - Lags (1-7)
+        - Day of Week
+        - Rolling Frequency (7, 30 days)
+        - Digit Strength (tens, units)
         """
-        # Rule A.1: Convert jodi to integer immediately.
-        df['jodi'] = pd.to_numeric(df['jodi'], errors='coerce')
-        df = df.dropna(subset=['jodi'])
-        df['jodi'] = df['jodi'].astype(int)
+        # Ensure 'Date' is datetime and 'Jodi' is numeric
+        df['Date'] = pd.to_datetime(df['Date'])
+        df['jodi_num'] = pd.to_numeric(df['Jodi'], errors='coerce').astype(float)
+        df = df.dropna(subset=['jodi_num'])
+        df['jodi_num'] = df['jodi_num'].astype(int)
 
         feature_df = df.copy()
 
-        # Rule A.2: Create lag features from 1 to 7.
+        # 1. Day of Week
+        feature_df['day_of_week'] = feature_df['Date'].dt.dayofweek
+
+        # 2. Lag Features (1 to 7)
         lag_cols = []
         for k in range(1, 8):
             col_name = f'lag_{k}'
-            # Rule A.2 / A.3: Use shift(k) for k > 0.
-            feature_df[col_name] = feature_df['jodi'].shift(k)
+            feature_df[col_name] = feature_df['jodi_num'].shift(k)
             lag_cols.append(col_name)
 
-        # Rule A.5: Drop rows with NaN after lag creation.
-        feature_df = feature_df.dropna(subset=lag_cols).reset_index(drop=True)
+        # 3. Rolling Frequency (on a longer baseline, shifted to avoid leakage)
+        # We look at the last 30 days but SHIFT by 1 so today's feature only knows up to yesterday.
+        feature_df['rolling_freq_7'] = feature_df['jodi_num'].rolling(window=7).count().shift(1)
+        feature_df['rolling_freq_30'] = feature_df['jodi_num'].rolling(window=30).count().shift(1)
+
+        # 4. Digit Features from previous Jodi (Lag 1)
+        feature_df['prev_tens'] = (feature_df['lag_1'] // 10).fillna(0).astype(int)
+        feature_df['prev_units'] = (feature_df['lag_1'] % 10).fillna(0).astype(int)
+
+        # Drop rows with NaN after feature engineering
+        feature_cols = ['day_of_week', 'rolling_freq_7', 'rolling_freq_30', 'prev_tens', 'prev_units'] + lag_cols
+        feature_df = feature_df.dropna(subset=feature_cols).reset_index(drop=True)
         
-        # Rule A.6: Ensure lag columns are numeric.
-        feature_df[lag_cols] = feature_df[lag_cols].astype(int)
-        
-        X = feature_df[lag_cols]
-        y = feature_df['jodi']
-        
-        # Rule A.4: No feature references the current row's jodi.
-        # This is inherently true as X only contains lag columns.
+        X = feature_df[feature_cols]
+        y = feature_df['jodi_num']
         
         return X, y
 

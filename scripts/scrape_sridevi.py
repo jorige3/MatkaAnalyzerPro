@@ -72,16 +72,22 @@ def scrape_historical():
         for i in range(date_cell_index, len(cells)):
             cell = cells[i]
             text = cell.get_text().strip()
+            
+            # Valid Jodi (2 digits)
             if text.isdigit() and len(text) == 2:
                 current_date = base_date + timedelta(days=day_offset)
                 formatted_date = current_date.strftime('%Y-%m-%d')
                 historical_data.append({'Date': formatted_date, 'Jodi': text})
                 day_offset += 1
+            # Holiday markers (*** or **) - Skip but increment offset
+            elif "***" in text or "**" in text:
+                day_offset += 1
             # Handle cases where a cell might contain non-jodi text but still occupies a day slot
             elif i > date_cell_index:
-                 # This simple logic assumes every cell after the date is a new day
-                 # A more robust solution would be needed if the table layout is inconsistent
-                 pass
+                 # If it's not a digit or holiday marker, we might still want to increment 
+                 # offset if it's clearly a day-cell (like an empty cell)
+                 if not text:
+                     day_offset += 1
 
 
     logger.info(f"Scraped {len(historical_data)} historical records.")

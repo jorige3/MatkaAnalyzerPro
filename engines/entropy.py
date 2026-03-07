@@ -25,26 +25,21 @@ class EntropyEngine:
     def run(self, df: pd.DataFrame) -> Dict[str, float]:
         """
         Calculates the Shannon entropy of the 'Jodi' column in the DataFrame.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Must contain column: ['Jodi']
-
-        Returns
-        -------
-        Dict[str, float]
-            A dictionary containing a single key 'overall_entropy_score' with a value
-            normalized to a 0-100 range.
         """
+        if df is None or df.empty:
+            return {"overall_entropy_score": 0.0}
+
         if "Jodi" not in df.columns:
             raise ValueError("DataFrame must contain 'Jodi' column")
 
-        if df.empty:
+        if len(df) < 2:
             return {"overall_entropy_score": 0.0}
 
         # Calculate probabilities of each unique Jodi
         jodi_counts = df["Jodi"].value_counts()
+        if jodi_counts.empty:
+            return {"overall_entropy_score": 0.0}
+
         probabilities = jodi_counts / len(df)
 
         # Calculate Shannon entropy

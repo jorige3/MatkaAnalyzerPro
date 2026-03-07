@@ -22,3 +22,7 @@ git add .
 git commit -m "feat: Daily data update and analysis run"
 
 echo "Daily automation complete."
+
+# 4. Clean up logs to remove redundant entries
+echo "Cleaning up redundant log entries..."
+PYTHONPATH=. python scripts/clean_logs.py

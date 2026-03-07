@@ -26,18 +26,8 @@ from config import DATA_FILE, SCHEMA_FILE, DISCLAIMER, TOP_N_PREDICTIONS
 
 def run_engines(df):
     """
-    Orchestrates and runs all analytical engines on the provided DataFrame.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The validated and normalized DataFrame containing 'Date' and 'Jodi'.
-
-    Returns
-    -------
-    dict
-        A dictionary containing results from all engines (confidence, frequency,
-        cycles, digits, momentum, entropy, etc.).
+    Orchestrates and runs all analytical engines.
+    Includes error handling for individual engine failures.
     """
     # Initialize engines
     fe = FrequencyEngine()
@@ -47,24 +37,52 @@ def run_engines(df):
     ee = EntropyEngine()
     conf = ConfidenceEngine()
 
-    # Run engines
-    frequency = fe.run(df)
-    cycles = ce.run(df)
-    digits_output = de.run(df)
-    digits = digits_output.get("jodi_scores", {})
-    individual_digit_strength = digits_output.get("individual_digit_strength", {})
-    momentum = me.run(df)
-    entropy = ee.run(df)
+    try:
+        frequency = fe.run(df)
+    except Exception as e:
+        print(f"Warning: FrequencyEngine failed: {e}")
+        frequency = {}
+
+    try:
+        cycles = ce.run(df)
+    except Exception as e:
+        print(f"Warning: CycleEngine failed: {e}")
+        cycles = {}
+
+    try:
+        digits_output = de.run(df)
+        digits = digits_output.get("jodi_scores", {})
+        individual_digit_strength = digits_output.get("individual_digit_strength", {})
+    except Exception as e:
+        print(f"Warning: DigitEngine failed: {e}")
+        digits = {}
+        individual_digit_strength = {}
+
+    try:
+        momentum = me.run(df)
+    except Exception as e:
+        print(f"Warning: MomentumEngine failed: {e}")
+        momentum = {}
+
+    try:
+        entropy = ee.run(df)
+    except Exception as e:
+        print(f"Warning: EntropyEngine failed: {e}")
+        entropy = {"overall_entropy_score": 0.0}
 
     # Run confidence scoring
-    confidence = conf.run(
-        frequency,
-        cycles,
-        digits,
-        momentum,
-        sample_size=len(df),
-        top_n=TOP_N_PREDICTIONS
-    )
+    try:
+        confidence = conf.run(
+            frequency,
+            cycles,
+            digits,
+            momentum,
+            sample_size=len(df),
+            top_n=TOP_N_PREDICTIONS
+        )
+    except Exception as e:
+        print(f"Error: ConfidenceEngine failed: {e}")
+        confidence = []
 
     return {
         "confidence": confidence,

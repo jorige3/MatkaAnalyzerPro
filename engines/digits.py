@@ -26,33 +26,16 @@ class DigitEngine:
     def run(self, df: pd.DataFrame) -> Dict[str, dict]:
         """
         Run digit analysis.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Must contain column: ['Jodi']
-
-        Returns
-        -------
-        Dict[str, dict]
-        {
-          "jodi_scores": {
-            jodi: {
-              'digit_score': float (0–100),
-              'tens_digit': int,
-              'unit_digit': int
-            }
-          },
-          "individual_digit_strength": {
-            digit: float (0-100)
-          }
-        }
         """
+        if df is None or df.empty:
+            return {"jodi_scores": {}, "individual_digit_strength": {}}
 
         if "Jodi" not in df.columns:
             raise ValueError("DataFrame must contain 'Jodi' column")
 
         data = df.copy()
+        if len(data) < 1:
+            return {"jodi_scores": {}, "individual_digit_strength": {}}
 
         # Ensure proper string format
         data["Jodi"] = data["Jodi"].astype(str).str.zfill(2)
@@ -62,16 +45,15 @@ class DigitEngine:
         data["units"] = data["Jodi"].str[1].astype(int)
 
         # --- Count digit frequency ---
-        digit_counts = (
-            pd.concat([data["tens"], data["units"]])
-            .value_counts()
-            .sort_index()
-        )
+        all_digits = pd.concat([data["tens"], data["units"]])
+        digit_counts = all_digits.value_counts().sort_index()
 
         if digit_counts.empty:
-            return {}
+            return {"jodi_scores": {}, "individual_digit_strength": {}}
 
         max_count = digit_counts.max()
+        if max_count == 0:
+            return {"jodi_scores": {}, "individual_digit_strength": {}}
 
         # Normalize digit strength to 0–100
         digit_strength = {

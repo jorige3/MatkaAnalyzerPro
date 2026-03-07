@@ -36,23 +36,18 @@ class MomentumEngine:
     def run(self, df: pd.DataFrame) -> Dict[str, float]:
         """
         Run momentum analysis.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Must contain columns: ['Date', 'Jodi']
-
-        Returns
-        -------
-        Dict[str, float]
-            { jodi: momentum_score (0–100) }
         """
+        if df is None or df.empty:
+            return {}
 
         required_cols = {"Date", "Jodi"}
         if not required_cols.issubset(df.columns):
             raise ValueError(f"Missing required columns: {required_cols}")
 
         data = df.copy()
+        if len(data) < 2:
+            return {}
+
         data["Date"] = pd.to_datetime(data["Date"])
 
         latest_date = data["Date"].max()
@@ -63,7 +58,7 @@ class MomentumEngine:
         recent_df = data[data["Date"] >= recent_cutoff]
         baseline_df = data[data["Date"] >= baseline_cutoff]
 
-        if baseline_df.empty:
+        if len(baseline_df) < 2:
             return {}
 
         recent_counts = recent_df["Jodi"].value_counts()
