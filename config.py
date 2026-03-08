@@ -1,11 +1,16 @@
 # config.py
 
 # Data file paths
-DATA_FILE = "data/sridevi.csv"
+DATA_FILE = "data/sridevi.csv" # Legacy default
 SCHEMA_FILE = "data/schema.py"
 
-# Confidence Engine Weights (for documentation and potential external tuning)
-# These weights are used in scoring/confidence.py
+# Market configurations
+MARKETS = {
+    "Sridevi": "data/sridevi.csv",
+    "Kalyan": "data/kalyan.csv"
+}
+
+# Confidence Engine Weights
 CONFIDENCE_WEIGHTS = {
     "frequency": 0.35,
     "cycles": 0.30,

@@ -10,3 +10,4 @@ streamlit
 xgboost
 scipy
 tqdm
+python-dotenv

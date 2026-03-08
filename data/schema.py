@@ -44,18 +44,22 @@ class DataSchemaValidator:
         data = data.dropna(subset=["Date"])
 
         # --- 3. Normalize Jodi ---
-        # Convert to string and clean
-        data["Jodi"] = data["Jodi"].astype(str).str.strip()
+        # Drop NaN jodis first
+        data = data.dropna(subset=["Jodi"])
         
-        # Filter out rows where Jodi is not numeric
-        is_numeric = data["Jodi"].str.isdigit()
-        non_numeric_count = (~is_numeric).sum()
-        if non_numeric_count > 0:
-            logger.warning(f"Dropped {non_numeric_count} rows with non-numeric Jodi values.")
-        data = data[is_numeric]
-
-        # Pad single digits (e.g., '7' -> '07') and ensure 2 digits
-        data["Jodi"] = data["Jodi"].str.zfill(2)
+        # Convert to numeric, then to int, then to zero-padded string
+        # This handles cases where Jodi might be read as float (e.g. 42.0)
+        try:
+            data["Jodi"] = pd.to_numeric(data["Jodi"], errors="coerce")
+            invalid_jodi_count = data["Jodi"].isna().sum()
+            if invalid_jodi_count > 0:
+                logger.warning(f"Dropped {invalid_jodi_count} rows with non-numeric Jodi values.")
+            data = data.dropna(subset=["Jodi"])
+            
+            data["Jodi"] = data["Jodi"].astype(int).astype(str).str.zfill(2)
+        except Exception as e:
+            logger.error(f"Error during Jodi normalization: {e}")
+            raise ValueError(f"Failed to normalize Jodi column: {e}")
         
         # Range check 00-99
         data["Jodi_int"] = data["Jodi"].astype(int)

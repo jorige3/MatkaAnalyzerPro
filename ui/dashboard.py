@@ -21,7 +21,7 @@ from main import run_classic_engines
 from data.data_loader import DataLoader
 from simulation.paper_test import PaperBacktest
 from engines.ultimate_ensemble import UltimateEnsemble
-from config import DATA_FILE, SCHEMA_FILE, DISCLAIMER, MIN_HISTORY_DAYS, TOP_N_PREDICTIONS
+from config import MARKETS, SCHEMA_FILE, DISCLAIMER, MIN_HISTORY_DAYS, TOP_N_PREDICTIONS
 
 st.set_page_config(layout="wide", page_title="Matka Analyzer Pro Dashboard", page_icon="📊")
 
@@ -30,15 +30,18 @@ st.warning(f"**Disclaimer**: {DISCLAIMER}")
 
 # --- Sidebar ---
 st.sidebar.header("🔧 Configuration")
+market_choice = st.sidebar.selectbox("Select Market", list(MARKETS.keys()))
+data_path = MARKETS[market_choice]
+
 min_history = st.sidebar.slider("Min History Days", 30, 365, MIN_HISTORY_DAYS)
 top_k = st.sidebar.slider("Top Predictions (K)", 1, 20, TOP_N_PREDICTIONS)
 
 @st.cache_data
-def load_data():
-    loader = DataLoader(DATA_FILE, SCHEMA_FILE)
+def load_data(path):
+    loader = DataLoader(path, SCHEMA_FILE)
     return loader.load_data()
 
-df = load_data()
+df = load_data(data_path)
 st.sidebar.write(f"**Dataset**: {len(df)} records")
 st.sidebar.write(f"**Range**: {df['Date'].min().date()} to {df['Date'].max().date()}")
 
@@ -86,7 +89,7 @@ with tab2:
     st.header("Backtest Simulation (Walk-Forward)")
     if st.button("🚀 Run Backtest"):
         with st.spinner("Analyzing historical accuracy..."):
-            bt = PaperBacktest(DATA_FILE, min_history_days=min_history)
+            bt = PaperBacktest(data_path, min_history_days=min_history)
             bt_res = bt.run(top_n=top_k)
             
             m1, m2, m3, m4 = st.columns(4)
