@@ -1,0 +1,219 @@
+[
+  {
+    "experiment": "synthetic_random_test",
+    "date": "2026-03-08 06:47:08",
+    "metrics": {
+      "max_freq_in_random": 100.0,
+      "markov_hit_rate": 0.108,
+      "markov_edge": 0.008,
+      "bayesian_hit_rate": 0.0957,
+      "bayesian_edge": -0.0043,
+      "note": "Baseline for all edges in pure random data should be near 0."
+    }
+  },
+  {
+    "experiment": "ensemble_predictor",
+    "date": "2026-03-08 06:47:44",
+    "metrics": {
+      "hit_rate": 0.15577889447236182,
+      "top_k": 10,
+      "samples": 199
+    }
+  },
+  {
+    "experiment": "pattern_memory",
+    "date": "2026-03-08 06:48:03",
+    "metrics": {
+      "hit_rate": 0.02040816326530612,
+      "total_samples": 49,
+      "seq_len": 2
+    }
+  },
+  {
+    "experiment": "adaptive_ensemble_backtest",
+    "date": "2026-03-08 06:51:06",
+    "metrics": {
+      "hit_rate": 0.1507537688442211,
+      "z_score": 2.386566723528063,
+      "p_value": 0.00850326049976824,
+      "samples": 199,
+      "conclusion": "STATISTICALLY SIGNIFICANT"
+    }
+  },
+  {
+    "experiment": "structural_break_detection",
+    "date": "2026-03-08 06:51:48",
+    "metrics": {
+      "total_breaks_detected": 62,
+      "break_frequency_rate": 0.0539,
+      "average_days_between_breaks": 18.55
+    }
+  },
+  {
+    "experiment": "recursive_digit_bayesian",
+    "date": "2026-03-08 06:52:34",
+    "metrics": {
+      "hit_rate": 0.5068,
+      "random_baseline": 0.4839,
+      "z_score": 1.5199,
+      "p_value": 0.064269,
+      "avg_jodis_played": 48.39,
+      "total_test_days": 1099
+    }
+  },
+  {
+    "experiment": "distance_autocorrelation",
+    "date": "2026-03-08 06:53:23",
+    "metrics": {
+      "hit_rate": 0.3527,
+      "baseline": 0.3476,
+      "z_score": 0.3508,
+      "p_value": 0.36288,
+      "avg_radius": 16,
+      "total_days": 1049
+    }
+  },
+  {
+    "experiment": "digit_entropy_reversion",
+    "date": "2026-03-08 06:56:18",
+    "metrics": {
+      "hit_rate": 0.0854,
+      "baseline": 0.1,
+      "z_score": -1.504,
+      "p_value": 0.933715,
+      "total_days": 949
+    }
+  },
+  {
+    "experiment": "hmm_categorical_prediction",
+    "date": "2026-03-08 06:57:33",
+    "metrics": {
+      "hit_rate": 0.1343,
+      "baseline": 0.1,
+      "z_score": 3.329,
+      "p_value": 0.000436,
+      "n_states": 3,
+      "total_days": 849
+    }
+  },
+  {
+    "experiment": "hmm_categorical_prediction",
+    "date": "2026-03-08 06:57:35",
+    "metrics": {
+      "hit_rate": 0.1154,
+      "baseline": 0.1,
+      "z_score": 1.4986,
+      "p_value": 0.066984,
+      "n_states": 6,
+      "total_days": 849
+    }
+  },
+  {
+    "experiment": "hmm_adaptive_ensemble",
+    "date": "2026-03-08 06:58:43",
+    "metrics": {
+      "hit_rate": 0.1610738255033557,
+      "z_score": 2.4850034922410886,
+      "samples": 149,
+      "top_k": 10
+    }
+  },
+  {
+    "experiment": "mi_adaptive_ensemble",
+    "date": "2026-03-08 07:07:24",
+    "metrics": {
+      "hit_rate_150": 0.1610738255033557,
+      "p_value": 0.006327585416043169,
+      "z_score": 2.4933284853833237
+    }
+  },
+  {
+    "experiment": "permutation_importance",
+    "date": "2026-03-08 07:17:04",
+    "metrics": [
+      {
+        "Engine": "bayesian",
+        "Hit Rate After Shuffle": "15.44%",
+        "Performance Drop": "0.67%",
+        "raw_drop": 0.006711409395973145
+      },
+      {
+        "Engine": "transition",
+        "Hit Rate After Shuffle": "15.66%",
+        "Performance Drop": "0.45%",
+        "raw_drop": 0.004474272930648754
+      },
+      {
+        "Engine": "momentum",
+        "Hit Rate After Shuffle": "16.11%",
+        "Performance Drop": "0.00%",
+        "raw_drop": 0.0
+      },
+      {
+        "Engine": "frequency",
+        "Hit Rate After Shuffle": "16.11%",
+        "Performance Drop": "0.00%",
+        "raw_drop": 0.0
+      }
+    ]
+  },
+  {
+    "experiment": "oracle_stress_test",
+    "date": "2026-03-08 07:32:43",
+    "metrics": {
+      "iterations": 20,
+      "mean_hr": 0.10671140939597316,
+      "max_hr": 0.14093959731543623,
+      "p99": 0.14093959731543623,
+      "real_hit_rate": 0.1611,
+      "percentile_rank": 100.0,
+      "conclusion": "STRONG SIGNAL: Model significantly outperforms random permutations."
+    }
+  },
+  {
+    "experiment": "transfer_entropy_lag_optimization",
+    "date": "2026-03-08 07:35:30",
+    "metrics": {
+      "optimal_lag": 3,
+      "hit_rate": 0.1152,
+      "baseline": 0.1,
+      "z_score": 1.2115,
+      "p_value": 0.112853,
+      "mi_scores": {
+        "1": 2.66547,
+        "2": 2.675904,
+        "3": 2.684002,
+        "4": 2.681112,
+        "5": 2.675238,
+        "6": 2.672702,
+        "7": 2.664783
+      }
+    }
+  },
+  {
+    "experiment": "multi_lag_convolution",
+    "date": "2026-03-08 07:37:12",
+    "metrics": {
+      "hit_rate": 0.1178,
+      "baseline": 0.1,
+      "z_score": 1.7274,
+      "p_value": 0.042045,
+      "weights": {
+        "1": 0.3311811023622047,
+        "2": 0.33511811023622046,
+        "3": 0.3337007874015748
+      },
+      "total_days": 849
+    }
+  },
+  {
+    "experiment": "ultimate_ensemble_validation",
+    "date": "2026-03-08 07:38:04",
+    "metrics": {
+      "hit_rate": 0.174496644295302,
+      "z_score": 3.0311581059204493,
+      "p_value": 0.0012180882244525737,
+      "days": 149
+    }
+  }
+]

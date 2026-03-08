@@ -7,18 +7,15 @@ the hit rate of top predictions.
 """
 import sys
 import os
-
-# Get the absolute path of the directory containing paper_test.py
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# Get the parent directory (matka_analyzer/)
-parent_dir = os.path.dirname(current_dir)
-# Add the parent directory to sys.path
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-
-from typing import Dict, Any
+from typing import Dict, Any, List
 import pandas as pd
 import numpy as np
+
+# Ensure parent directory is in path for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
 from engines.frequency import FrequencyEngine
 from engines.cycles import CycleEngine
@@ -31,6 +28,7 @@ from config import TOP_N_PREDICTIONS, DATA_FILE, MIN_HISTORY_DAYS
 class PaperBacktest:
     """
     Simulates a paper trading strategy based on the confidence engine's predictions.
+    Avoids look-ahead bias by using only strictly historical data for each day.
     """
 
     def __init__(self, csv_path: str, min_history_days: int = 180):
@@ -38,12 +36,8 @@ class PaperBacktest:
         self.min_history_days = min_history_days
 
         self.all_data = pd.read_csv(self.data_file)
-
-        if "Date" not in self.all_data.columns:
-            raise ValueError("CSV must contain a 'Date' column")
-
-        if "Jodi" not in self.all_data.columns:
-            raise ValueError("CSV must contain a 'Jodi' column")
+        if "Date" not in self.all_data.columns or "Jodi" not in self.all_data.columns:
+            raise ValueError("CSV must contain 'Date' and 'Jodi' columns")
 
         self.all_data["Date"] = pd.to_datetime(self.all_data["Date"])
         self.all_data["Jodi"] = self.all_data["Jodi"].astype(str).str.zfill(2)
@@ -57,30 +51,23 @@ class PaperBacktest:
         self.confidence_engine = ConfidenceEngine()
 
     def run(self, top_n: int = TOP_N_PREDICTIONS, verbose: bool = False) -> Dict[str, Any]:
-
+        """
+        Runs the walk-forward simulation.
+        """
         total_predictions = 0
         total_hits = 0
         daily_results = []
+        hit_series = []
 
         unique_dates = np.sort(self.all_data["Date"].unique())
 
-        # Walk-forward simulation
         for current_date in unique_dates:
+            historical_data = self.all_data[self.all_data["Date"] < current_date].copy()
 
-            # Historical data strictly before current date
-            historical_data = self.all_data[
-                self.all_data["Date"] < current_date
-            ].copy()
-
-            # Ensure minimum training window
             if len(historical_data) < self.min_history_days:
                 continue
 
-            # Get actual result for current day
-            current_day_data = self.all_data[
-                self.all_data["Date"] == current_date
-            ]
-
+            current_day_data = self.all_data[self.all_data["Date"] == current_date]
             if current_day_data.empty:
                 continue
 
@@ -90,141 +77,66 @@ class PaperBacktest:
             frequency = self.frequency_engine.run(historical_data)
             cycles = self.cycle_engine.run(historical_data)
             digits_output = self.digit_engine.run(historical_data)
-            digits = digits_output["jodi_scores"]
+            digits = digits_output.get("jodi_scores", {})
             momentum = self.momentum_engine.run(historical_data)
 
             # --- Confidence Scoring ---
             confidence_results = self.confidence_engine.run(
-                frequency,
-                cycles,
-                digits,
-                momentum,
+                frequency, cycles, digits, momentum,
                 sample_size=len(historical_data),
                 top_n=top_n
             )
 
             top_predictions = [jodi for jodi, _, _ in confidence_results]
-
-            # Check hit
             is_hit = actual_jodi in top_predictions
 
             if is_hit:
                 total_hits += 1
-
+            
             total_predictions += 1
+            hit_series.append(1 if is_hit else 0)
 
             if verbose:
                 daily_results.append({
                     "date": current_date,
                     "actual_jodi": actual_jodi,
-                    "top_predictions": ", ".join(top_predictions), # Convert list to string
-                    "hit": is_hit,
-                    "reason": "Hit" if is_hit else "Miss"
+                    "top_predictions": ", ".join(top_predictions),
+                    "hit": is_hit
                 })
 
-        misses = total_predictions - total_hits
-        hit_rate = (
-            (total_hits / total_predictions) * 100
-            if total_predictions > 0 else 0
-        )
-
-        # Additional stats
-        avg_hits_per_day = total_hits / total_predictions if total_predictions > 0 else 0
+        # --- Calculate Statistics ---
+        hit_rate = (total_hits / total_predictions * 100) if total_predictions > 0 else 0
+        baseline_rate = (top_n / 100.0) * 100
+        edge = hit_rate - baseline_rate
+        
+        # Calculate Rolling Accuracy (Window of 20)
+        rolling_accuracy = []
+        if len(hit_series) >= 20:
+            rolling_accuracy = pd.Series(hit_series).rolling(window=20).mean().tolist()
+            max_drawdown_hits = 1.0 - (min(rolling_accuracy) if rolling_accuracy else 0)
+        else:
+            max_drawdown_hits = 0.0
 
         results_dict = {
             "total_days_tested": total_predictions,
             "hits": total_hits,
-            "misses": misses,
+            "misses": total_predictions - total_hits,
             "historical_alignment_rate": round(hit_rate, 2),
+            "baseline_rate": round(baseline_rate, 2),
+            "edge_over_baseline": round(edge, 2),
             "top_n_considered": top_n,
-            "avg_hits_per_day": round(avg_hits_per_day, 4)
+            "max_volatility_hit_rate": round(max_drawdown_hits, 4)
         }
 
         if verbose:
             results_dict["daily_results"] = daily_results
-            print(f"Backtest Complete: {total_predictions} days tested, {total_hits} hits ({hit_rate:.2f}% rate).")
+            print(f"Backtest Complete: {total_predictions} days, {total_hits} hits ({hit_rate:.2f}%). Edge: {edge:+.2f}%")
 
         return results_dict
 
-    def backtest_simple_strategy(self, z_threshold: float = 1.5, due_days: int = 7, verbose: bool = False) -> Dict[str, Any]:
-        """
-        Optimized backtest for a simple strategy: Z-score > threshold and last hit >= due_days ago.
-        """
-        total_days = 0
-        total_hits = 0
-        total_bets = 0
-        
-        unique_dates = np.sort(self.all_data["Date"].unique())
-        
-        for current_date in unique_dates:
-            historical_data = self.all_data[self.all_data["Date"] < current_date]
-            n = len(historical_data)
-            if n < self.min_history_days:
-                continue
-                
-            current_day_data = self.all_data[self.all_data["Date"] == current_date]
-            if current_day_data.empty:
-                continue
-            actual_jodi = str(current_day_data["Jodi"].iloc[0]).zfill(2)
-            
-            # Vectorized computation of counts and Z-scores
-            counts = historical_data["Jodi"].value_counts()
-            expected = n / 100.0
-            std_dev = np.sqrt(n * 0.01 * 0.99)
-            
-            # Recency calculation (last date for each Jodi)
-            last_dates = historical_data.groupby("Jodi")["Date"].max()
-            
-            candidates = []
-            for j in range(100):
-                j_str = str(j).zfill(2)
-                cnt = counts.get(j_str, 0)
-                z = (cnt - expected) / std_dev if std_dev > 0 else 0
-                
-                if z > z_threshold:
-                    last_date = last_dates.get(j_str)
-                    days_since = (current_date - last_date).days if pd.notnull(last_date) else None
-                    
-                    if days_since is None or days_since >= due_days:
-                        candidates.append(j_str)
-            
-            if not candidates:
-                continue
-                
-            is_hit = actual_jodi in candidates
-            if is_hit:
-                total_hits += 1
-            
-            total_bets += len(candidates)
-            total_days += 1
-            
-        hit_rate = (total_hits / total_days * 100) if total_days > 0 else 0
-        efficiency = (total_hits / total_bets * 100) if total_bets > 0 else 0
-        
-        results = {
-            "strategy": f"Z-Score > {z_threshold} & Days Since >= {due_days}",
-            "total_days_active": total_days,
-            "total_hits": total_hits,
-            "total_bets_placed": total_bets,
-            "day_hit_rate": round(hit_rate, 2),
-            "bet_efficiency": round(efficiency, 2)
-        }
-        
-        if verbose:
-            print(f"Simple Strategy Backtest: {results}")
-            
-        return results
-
 if __name__ == "__main__":
     from config import DATA_FILE, MIN_HISTORY_DAYS
-    
-    print("--- Running Paper Backtest (Top-N Confidence) ---")
+    print("--- Running Advanced Paper Backtest ---")
     backtester = PaperBacktest(DATA_FILE, min_history_days=MIN_HISTORY_DAYS)
-    
-    # 1. Standard Engine-based Backtest
     results = backtester.run(top_n=10, verbose=True)
-    print(f"Engine Results: {results['historical_alignment_rate']}% Hit Rate")
-    
-    # 2. Simple Z-Score Strategy Backtest
-    print("\n--- Running Simple Z-Score Strategy Backtest ---")
-    simple_results = backtester.backtest_simple_strategy(z_threshold=1.5, due_days=7, verbose=True)
+    print(f"Final Stats: {results}")

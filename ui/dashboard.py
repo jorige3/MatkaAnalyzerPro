@@ -1,217 +1,123 @@
 """
-Streamlit Dashboard for Matka Analyzer Pro.
-
-This dashboard provides interactive visualizations and summaries of the
-historical Matka data analysis, including frequency, cycle distribution,
-digit strength, momentum, and backtesting results.
-
-It is designed for educational and analytical purposes only, focusing on
-pattern recognition in historical time-series data. It explicitly avoids
-any form of gambling advice or prediction.
+Streamlit Dashboard for Matka Analyzer Pro
+------------------------------------------
+Interactive visualization of historical pattern analysis.
 """
 
 import sys
 import os
-
-# Get the absolute path of the directory containing dashboard.py
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# Get the parent directory (matka_analyzer/)
-parent_dir = os.path.dirname(current_dir)
-# Add the parent directory to sys.path
-sys.path.insert(0, parent_dir)
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from main import run_engines
+import plotly.graph_objects as go
+
+# Ensure parent directory is in path for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from main import run_classic_engines
 from data.data_loader import DataLoader
 from simulation.paper_test import PaperBacktest
+from engines.ultimate_ensemble import UltimateEnsemble
 from config import DATA_FILE, SCHEMA_FILE, DISCLAIMER, MIN_HISTORY_DAYS, TOP_N_PREDICTIONS
 
-st.set_page_config(layout="wide", page_title="Matka Analyzer Pro Dashboard")
+st.set_page_config(layout="wide", page_title="Matka Analyzer Pro Dashboard", page_icon="📊")
 
-st.title("Matka Analyzer Pro: Historical Pattern Analysis")
+st.title("📊 Matka Analyzer Pro: Historical Pattern Analysis")
+st.warning(f"**Disclaimer**: {DISCLAIMER}")
 
-# Global disclaimer at the top
-st.markdown(f"**{DISCLAIMER}**")
+# --- Sidebar ---
+st.sidebar.header("🔧 Configuration")
+min_history = st.sidebar.slider("Min History Days", 30, 365, MIN_HISTORY_DAYS)
+top_k = st.sidebar.slider("Top Predictions (K)", 1, 20, TOP_N_PREDICTIONS)
 
-# --- Sidebar Configuration ---
-st.sidebar.header("Configuration")
-selected_data_file = st.sidebar.selectbox("Select Data File", [DATA_FILE])
-min_history_days_config = st.sidebar.slider("Minimum History Days for Backtest", 10, 100, MIN_HISTORY_DAYS)
-top_n_predictions_config = st.sidebar.slider("Top N Predictions for Display & Backtest", 1, 20, TOP_N_PREDICTIONS)
-
-# Generate report text for download
-def generate_report_text(df, results):
-    latest_date = df['Date'].max().strftime('%Y-%m-%d')
-    report = f"Matka Analyzer Pro: Analysis Report for {latest_date}\n"
-    report += "=" * 50 + "\n\n"
-    report += "TOP CONFIDENCE ALIGNMENTS:\n"
-    report += f"{'Jodi':<6} | {'Score':<8} | {'Tags'}\n"
-    report += "-" * 50 + "\n"
-    for jodi, score, tags in results.get("confidence", []):
-        report += f"{jodi:<6} | {score:<8.2f} | {', '.join(tags)}\n"
-    return report
-
-# --- Data Loading and Engine Run ---
 @st.cache_data
-def load_and_run_analysis(data_file, schema_file, min_hist_days_param):
-    data_loader = DataLoader(file_path=data_file, schema_path=schema_file)
-    df = data_loader.load_data()
-    # Ensure enough data for analysis
-    if len(df) < min_hist_days_param:
-        st.error(f"Not enough historical data. Need at least {min_hist_days_param} days.")
-        st.stop()
-    results = run_engines(df)
-    return df, results
+def load_data():
+    loader = DataLoader(DATA_FILE, SCHEMA_FILE)
+    return loader.load_data()
 
-# Use selected values from sidebar
-df, results = load_and_run_analysis(selected_data_file, SCHEMA_FILE, min_history_days_config)
+df = load_data()
+st.sidebar.write(f"**Dataset**: {len(df)} records")
+st.sidebar.write(f"**Range**: {df['Date'].min().date()} to {df['Date'].max().date()}")
 
-report_text = generate_report_text(df, results)
-st.sidebar.download_button(
-    label="Download Analysis Report (.txt)",
-    data=report_text,
-    file_name=f"analysis_{df['Date'].max().strftime('%Y%m%d')}.txt",
-    mime="text/plain"
-)
+# --- Main Dashboard ---
+tab1, tab2, tab3 = st.tabs(["🎯 Current Analysis", "📈 Historical Performance", "🧠 Advanced Ensemble"])
 
-st.subheader("Data Overview")
-st.write(f"Loaded {len(df)} records from `{selected_data_file}`.")
-st.write(f"Analysis performed up to `{df['Date'].max().strftime('%Y-%m-%d')}`.")
-
-# --- Display Top Confidence Alignments ---
-st.header("Top Confidence Alignments")
-confidence_results = results.get("confidence", [])
-if confidence_results:
-    confidence_df = pd.DataFrame(confidence_results, columns=["Jodi", "Confidence Score", "Tags"])
+with tab1:
+    st.header("Unified Confidence Scores")
+    results = run_classic_engines(df)
+    
+    conf_df = pd.DataFrame(results["confidence"], columns=["Jodi", "Score", "Tags"])
     
     col1, col2 = st.columns([1, 2])
     with col1:
-        st.dataframe(confidence_df.head(top_n_predictions_config))
-    with col2:
-        fig_conf = px.bar(
-            confidence_df.head(top_n_predictions_config),
-            x="Jodi",
-            y="Confidence Score",
-            title=f"Top {top_n_predictions_config} Jodis by Confidence",
-            hover_data=["Tags"]
-        )
-        st.plotly_chart(fig_conf, width='stretch')
-else:
-    st.info("No confidence alignments to display.")
-
-# --- Detailed Analysis Section ---
-st.header("Detailed Engine Analysis")
-with st.expander("Expand to view detailed engine outputs"):
-    # --- Frequency Chart ---
-    st.subheader("Frequency Analysis")
-    frequency_data = results.get("frequency", {})
-    if frequency_data:
-        freq_df = pd.DataFrame(frequency_data.items(), columns=["Jodi", "Frequency Score"])
-        freq_df = freq_df.sort_values("Frequency Score", ascending=False).head(top_n_predictions_config)
-        fig_freq = px.bar(freq_df, x="Jodi", y="Frequency Score", title=f"Top {top_n_predictions_config} Jodis by Frequency")
-        st.plotly_chart(fig_freq, width='stretch')
-    else:
-        st.info("No frequency data to display.")
-
-    # --- Cycle Distribution ---
-    st.subheader("Cycle Analysis")
-    cycle_data = results.get("cycles", {})
-    if cycle_data:
-        cycle_status_counts = pd.DataFrame([v["status"] for v in cycle_data.values()], columns=["Status"])
-        fig_cycle = px.pie(cycle_status_counts, names="Status", title="Cycle Status Distribution")
-        st.plotly_chart(fig_cycle, width='stretch')
-
-        due_jodis = [jodi for jodi, data in cycle_data.items() if data["status"] == "DUE"]
-        exhausted_jodis = [jodi for jodi, data in cycle_data.items() if data["status"] == "EXHAUSTED"]
-
-        if due_jodis:
-            st.write(f"**Jodis in DUE Cycles**: {', '.join(due_jodis)}")
-        if exhausted_jodis:
-            st.write(f"**Jodis in EXHAUSTED Cycles**: {', '.join(exhausted_jodis)}")
-        if not due_jodis and not exhausted_jodis:
-            st.info("No Jodis currently in DUE or EXHAUSTED cycles.")
-    else:
-        st.info("No cycle data to display.")
-
-    # --- Digit Strength ---
-    st.subheader("Digit Strength Analysis")
-    digit_results = results.get("digits", {})
-    if digit_results:
-        digit_jodi_scores_df = pd.DataFrame(
-            [{'Jodi': k, 'Digit Score': v['digit_score'], 'Tens Digit': v['tens_digit'], 'Unit Digit': v['unit_digit']}
-             for k, v in digit_results.items()]
-        )
-        digit_jodi_scores_df = digit_jodi_scores_df.sort_values("Digit Score", ascending=False).head(top_n_predictions_config)
-        st.dataframe(digit_jodi_scores_df)
-
-        # Individual digit strength visualization
-        individual_digit_strength = results.get("individual_digit_strength", {})
-        if individual_digit_strength:
-            digit_strength_df = pd.DataFrame(individual_digit_strength.items(), columns=["Digit", "Strength Score"])
-            digit_strength_df = digit_strength_df.sort_values("Strength Score", ascending=False)
-            fig_digit_strength = px.bar(digit_strength_df, x="Digit", y="Strength Score", title="Individual Digit Strength")
-            st.plotly_chart(fig_digit_strength, width='stretch')
-        else:
-            st.info("No individual digit strength data to display.")
-
-    else:
-        st.info("No digit analysis data to display.")
-
-    # --- Momentum Analysis ---
-    st.subheader("Momentum Analysis")
-    momentum_data = results.get("momentum", {})
-    if momentum_data:
-        momentum_df = pd.DataFrame(momentum_data.items(), columns=["Jodi", "Momentum Score"])
-        momentum_df = momentum_df.sort_values("Momentum Score", ascending=False).head(top_n_predictions_config)
-        fig_momentum = px.bar(momentum_df, x="Jodi", y="Momentum Score", title=f"Top {top_n_predictions_config} Jodis by Momentum")
-        st.plotly_chart(fig_momentum, width='stretch')
-    else:
-        st.info("No momentum data to display.")
-
-    # --- Entropy Score ---
-    st.subheader("Entropy Score")
-    entropy_score = results.get("entropy", {}).get("overall_entropy_score")
-    if entropy_score is not None:
-        st.write(f"**Overall Entropy Score**: {entropy_score:.2f}")
-    else:
-        st.info("No entropy data to display.")
-
-
-@st.cache_data
-def run_backtest(data_file, min_history_days, top_n_predictions):
-    backtester = PaperBacktest(data_file, min_history_days=min_history_days)
-    return backtester.run(top_n=top_n_predictions, verbose=True)
-
-# --- Historical Alignment Rate (Backtesting) ---
-st.header("Historical Alignment Rate (Backtesting)")
-st.info("Running backtest simulation. This may take a moment. The displayed 'min_history_days' is for this backtest only.")
-
-backtest_stats = run_backtest(selected_data_file, min_history_days_config, top_n_predictions_config)
-
-if backtest_stats:
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Days Tested", backtest_stats['total_days_tested'])
-    with col2:
-        st.metric(f"Hits (Top-{backtest_stats['top_n_considered']})", backtest_stats['hits'])
-    with col3:
-        st.metric("Misses", backtest_stats['misses'])
+        st.dataframe(conf_df.style.background_gradient(subset=["Score"], cmap="Greens"))
     
-    st.success(f"**Historical Alignment Rate**: {backtest_stats['historical_alignment_rate']}%")
+    with col2:
+        fig = px.bar(conf_df.head(top_k), x="Jodi", y="Score", color="Score",
+                     title=f"Top {top_k} Candidates by Confidence Score",
+                     hover_data=["Tags"])
+        st.plotly_chart(fig, use_container_width=True)
 
-    if st.checkbox("Show detailed daily backtest results"):
-        if "daily_results" in backtest_stats and backtest_stats["daily_results"]:
-            daily_bt_df = pd.DataFrame(backtest_stats["daily_results"])
-            # Convert date column for better display if needed
-            daily_bt_df['date'] = daily_bt_df['date'].dt.strftime('%Y-%m-%d')
-            st.dataframe(daily_bt_df, width='stretch')
-        else:
-            st.info("No detailed daily results available. Run backtest with verbose=True.")
-else:
-    st.warning("Could not run backtest simulation.")
+    # Breakdown Expander
+    with st.expander("🔍 Detailed Engine Breakdown"):
+        c1, c2, c3 = st.columns(3)
+        
+        with c1:
+            st.subheader("Frequency Score")
+            freq_df = pd.DataFrame(list(results["frequency"].items()), columns=["Jodi", "Freq"]).sort_values("Freq", ascending=False)
+            st.bar_chart(freq_df.set_index("Jodi").head(10))
+            
+        with c2:
+            st.subheader("Momentum (Acceleration)")
+            mom_df = pd.DataFrame(list(results["momentum"].items()), columns=["Jodi", "Mom"]).sort_values("Mom", ascending=False)
+            st.bar_chart(mom_df.set_index("Jodi").head(10))
+            
+        with c3:
+            st.subheader("Digit Strength")
+            digit_strength = results["digits"]
+            ds_df = pd.DataFrame(list(digit_strength.items()), columns=["Digit", "Strength"]).sort_values("Digit")
+            fig_ds = px.line(ds_df, x="Digit", y="Strength", markers=True)
+            st.plotly_chart(fig_ds, use_container_width=True)
 
-st.markdown("---")
-# Global disclaimer at the bottom
-st.markdown(f"**Note**: All outputs are historical observations only. {DISCLAIMER}")
+with tab2:
+    st.header("Backtest Simulation (Walk-Forward)")
+    if st.button("🚀 Run Backtest"):
+        with st.spinner("Analyzing historical accuracy..."):
+            bt = PaperBacktest(DATA_FILE, min_history_days=min_history)
+            bt_res = bt.run(top_n=top_k)
+            
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Total Hits", bt_res["hits"])
+            m2.metric("Hit Rate", f"{bt_res['historical_alignment_rate']}%")
+            m3.metric("Baseline", f"{bt_res['baseline_rate']}%")
+            m4.metric("Edge", f"{bt_res['edge_over_baseline']}%", delta=bt_res['edge_over_baseline'])
+            
+            st.success(f"Historical Alignment is {bt_res['edge_over_baseline']}% higher than random baseline.")
+
+with tab3:
+    st.header("Advanced Regime Ensemble")
+    st.info("Utilizes Hidden Markov Models (HMM) to detect latent 'regimes' (Stable, Sequential, Volatile).")
+    
+    if st.button("🧠 Execute Ensemble Inference"):
+        ue = UltimateEnsemble(df)
+        ue._train_all()
+        preds, regime = ue.predict_next(top_n=10)
+        
+        regimes = {0: "🟢 STABLE (High Predictability)", 
+                   1: "🟡 SEQUENTIAL (Lagged Dependencies)", 
+                   2: "🔴 VOLATILE (Mean Reversion Dominant)"}
+        
+        st.subheader(f"Current Market State: {regimes.get(regime)}")
+        
+        pred_df = pd.DataFrame(preds, columns=["Jodi", "Probability Score"])
+        st.table(pred_df)
+        
+        # Convolution Probability Distribution
+        fig_prob = px.area(pred_df, x="Jodi", y="Probability Score", title="Ensemble Probability Curve")
+        st.plotly_chart(fig_prob, use_container_width=True)
+
+st.divider()
+st.caption(f"Matka Analyzer Pro | Version 1.0.0 | {DISCLAIMER}")
